@@ -6,21 +6,36 @@ import java.sql.SQLException;
 import java.sql.Statement;
 
 /**
- * Clase para crear/conectarse a la base de datos del servidor y crear las tablas
+ * Clase para crear la base de datos del servidor y crear las tablas
  * necesarias (de momento User y Location).
  */
 public class DatabaseCreation {
     
-    static String userSQLCreate = "CREATE TABLE IF NOT EXISTS User("
-            + "userId INT PRIMARY KEY,"
-            + "email String UNIQUE,"
-            + "password String NOT NULL)";
+    static String userSQLCreate = "CREATE TABLE User ("
+        + "userId INTEGER PRIMARY KEY, "
+        + "username TEXT UNIQUE NOT NULL, "
+        + "email TEXT UNIQUE, "
+        + "password TEXT NOT NULL)";
     
+    static String adminSQLCreate = "CREATE TABLE Admin ("
+    	+ "userId INTEGER PRIMARY KEY, "
+    	+ "FOREIGN KEY (userId) REFERENCES User (userId))";
+
+    static String locationSQLCreate = "CREATE TABLE location ("
+    	+ "userId INTEGER, "
+    	+ "time INT, "
+    	+ "latitude REAL NOT NULL, "
+    	+ "longitude REAL NOT NULL, "
+    	+ "PRIMARY KEY (userId, time), "
+    	+ "FOREIGN KEY (userId) REFERENCES User (userId) ON DELETE CASCADE )";	
+
     
     public static void main(String [] args) throws SQLException {
         Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db"); 
         Statement stmt = con.createStatement();
-        stmt.executeUpdate(userSQLCreate); //Creación de la tabla User en la BBDD
+        stmt.executeUpdate(userSQLCreate); 
+        stmt.executeUpdate(adminSQLCreate); 
+        stmt.executeUpdate(locationSQLCreate); 
     }
     
 }
