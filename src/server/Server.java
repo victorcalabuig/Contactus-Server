@@ -47,6 +47,7 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	    ServerSocket serverSocket = new ServerSocket(8000);
 	    System.out.println("Waiting for client conexions...");
 	    Socket clientSocket = serverSocket.accept();
+	    System.out.println("Conection established!!!");
 	    
 	    BufferedReader in = new BufferedReader(
 	        new InputStreamReader(clientSocket.getInputStream()));
@@ -54,10 +55,16 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	        clientSocket.getOutputStream(), true);
 	    
 	    while(true){
+	    	//Mensaje recibido del cliente
 	        String msgReceived = in.readLine();
-	        if(msgReceived.equals("close")) break;
-	        //out.println(rec); //Reenvío del mensaje recibido al cliente
+
+	        if(msgReceived.equals("close")) break; //temporal
+
 	        //Implementar lógica aquí
+
+	        //Reenvío del mensaje recibido al cliente
+	        out.println(msgReceived); 
+	        
 	    }
 	    
 	    con.close();
