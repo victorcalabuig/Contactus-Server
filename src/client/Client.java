@@ -24,7 +24,8 @@ public static void main(String[] args) throws IOException {
 	BufferedReader in = new BufferedReader(
 		new InputStreamReader(clientSocket.getInputStream()));
 
-	while(true){
+	boolean execute = true;
+	while(execute){
 		String keyboardInput = keyboard.nextLine(); 
 		//Se añade como cabecera el Id del usuario actual
 		String msgToServer = currentUserId + " " + keyboardInput; 
@@ -36,11 +37,13 @@ public static void main(String[] args) throws IOException {
 	    //Mecanismo temporal para cerrar la conexión
 	    if(keyboardInput.equals("close")) break; 
 
-	    //Contestación del servidor
+	    //Resultado que nos envía el servidor
 	    String res = in.readLine();
 	    System.out.println("server response: " + res); //Comprobación
 
 	    //Implementar lógica tras contestación
+
+	    if(Integer.parseInt(res) == 3) execute = false;
 	}
 	    
 	clientSocket.close();
