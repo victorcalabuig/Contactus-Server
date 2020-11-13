@@ -25,7 +25,7 @@ public class Server {
 * @param username Nombre de usuario
 * @param pwd Contraseña de acceso
 * @param stmt Statement utilizado para conectarse a la base de datos.
-* @return 0 si añade el usuario correctamente, 1 si el usuario ya existía.
+* @return 0 si añade el usuario correctamente, 41 si el usuario ya existía.
 */
 private static int addUser(String username, String pwd, Statement stmt) 
 	throws SQLException {
@@ -48,7 +48,7 @@ private static int addUser(String username, String pwd, Statement stmt)
 * por espacios.
 * @param stmt Statement utilizado para conectarse a la base de datos.
 * @return Si fields contiene 4 elementos, devolverá el resultado del método addUser 
-* principal (0 o 1), sino, devuelve 2.
+* principal (0 o 41), sino, devuelve 42 (consultar utils.Code)
 */
 private static int addUser(String[] fields, Statement stmt) throws SQLException {
 	if(fields.length == 4) {
