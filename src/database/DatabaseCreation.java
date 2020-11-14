@@ -21,7 +21,7 @@ public class DatabaseCreation {
     	+ "userId INTEGER PRIMARY KEY, "
     	+ "FOREIGN KEY (userId) REFERENCES User (userId))";
 
-    static String locationSQLCreate = "CREATE TABLE location ("
+    static String locationSQLCreate = "CREATE TABLE Location ("
     	+ "userId INTEGER, "
     	+ "time INT, "
     	+ "latitude REAL NOT NULL, "

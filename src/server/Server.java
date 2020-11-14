@@ -13,6 +13,7 @@ import java.sql.DriverManager;
 import java.sql.SQLException;
 import java.sql.Statement;
 import java.sql.ResultSet;
+import java.sql.Timestamp;
 
 import utils.Code;
 
@@ -85,6 +86,41 @@ private static int getUserId(String username, Statement stmt) throws SQLExceptio
 }
 
 
+private static int addPosition(int userId, double latitude, double longitude, 
+	Statement stmt) throws SQLException {
+	Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+	long time = timestamp.getTime();
+	String updatePos = String.format(
+		"INSERT INTO Location VALUES ('%d', '%d', '%f', '%f')", 
+		userId, time, latitude, longitude);
+	stmt.executeUpdate(updatePos);
+	return 0;
+}
+
+
+private static int addPosition(String[] fields, Statement stmt) throws SQLException {
+	if(Integer.parseInt(fields[0]) == 0) return -46; //user not authenticated
+	if(fields.length != 4) return -42;
+	if(isNumeric(fields[2]) && isNumeric(fields[3])){
+		return addPosition(
+			Integer.parseInt(fields[0]), 
+			Double.parseDouble(fields[2]), 
+			Double.parseDouble(fields[3]), 
+			stmt);
+	}
+	return -421;
+}
+
+/**
+* Comprueba si un String es numerico y puede convertirse a un double.
+* @param num String sobre el que se realiza la comprobacion.
+* @return Verdadero si el string es numerico, falso sino.
+*/
+private static boolean isNumeric(String num){
+	return num.matches("-?\\d+(\\.\\d+)?"); //expresion regular.
+}
+
+
 public static void main(String[] args) throws IOException, InterruptedException,
 	SQLException {
 
@@ -125,8 +161,11 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	        				info2 = fields[2]; //devolvemos tambien el username
 	        			}
 	        			break;
+	        		case "addPosition":
+	        			res = addPosition(fields, stmt);
+	        			break;
 	        		case "exit": 
-	        			res = -3;
+	        			res = 0;
 	        			execute = false;
 	        			break;
 
