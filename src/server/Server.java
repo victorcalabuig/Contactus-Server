@@ -59,6 +59,9 @@ private static int addUser(String[] fields, Statement stmt) throws SQLException 
 }
 
 
+/**
+* Autentica una combinacion username-password.
+*/ 
 private static int login(String username, String pwd, Statement stmt) throws SQLException {
 	String queryUserId = String.format(
 		"SELECT userId FROM User WHERE username = '%s' AND password = '%s'", username, pwd);
@@ -69,12 +72,19 @@ private static int login(String username, String pwd, Statement stmt) throws SQL
 	return -44; //auth fail
 }
 
+/**
+* Método envoltorio del medoto login principal. Comprueba la validez de los 
+* argumentos y que el cliente no haya iniciado sesión previamente.
+*/
 private static int login(String[] fields, Statement stmt) throws SQLException {
 	if(fields.length != 4) return -42;
 	if(Integer.parseInt(fields[0]) != 0) return -43; //User already logged in
 	return login(fields[2], fields[3], stmt);
 }
 
+/**
+* Consulta a la base de datos y devuelve el userId de un usuario.
+*/
 private static int getUserId(String username, Statement stmt) throws SQLException {
 	String queryUserId = String.format(
 		"SELECT userId FROM User WHERE username = '%s'", username);
@@ -86,6 +96,9 @@ private static int getUserId(String username, Statement stmt) throws SQLExceptio
 }
 
 
+/**
+* Añade una posición a la base de datos asociada al usuario que envía el comando.
+*/
 private static int addPosition(int userId, double latitude, double longitude, 
 	Statement stmt) throws SQLException {
 	Timestamp timestamp = new Timestamp(System.currentTimeMillis());
@@ -97,7 +110,11 @@ private static int addPosition(int userId, double latitude, double longitude,
 	return 0;
 }
 
-
+/**
+* Método envoltorio que comprueba la validez de los parametros suministrados al 
+* comando addPosition (que sean 2 y que sean numéricos). También comprueba que 
+* el cliente que envia el comando ha iniciado sesion previamente.
+*/
 private static int addPosition(String[] fields, Statement stmt) throws SQLException {
 	if(Integer.parseInt(fields[0]) == 0) return -46; //user not authenticated
 	if(fields.length != 4) return -42;
