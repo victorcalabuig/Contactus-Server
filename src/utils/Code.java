@@ -9,13 +9,16 @@ public static Map<String, String> codes = new HashMap();
 static {
 	codes.put("0", "success");
 
-	codes.put("1", "ignored");
+	codes.put("-1", "ignored");
 
-	codes.put("4", "failure");
-	codes.put("41", "userExists");
-	codes.put("42", "wrongNumberOfArguments");
+	codes.put("-4", "failure");
+	codes.put("-41", "userExists");
+	codes.put("-42", "wrongNumberOfArguments");
+	codes.put("-43", "userAlreadyLoggedIn");
+	codes.put("-44", "authenticationFailure");
+	codes.put("-45", "userNotFound");
 
-	codes.put("3", "exit");
+	codes.put("-3", "exit");
 }
 
 }

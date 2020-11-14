@@ -25,7 +25,7 @@ public class Server {
 * @param username Nombre de usuario
 * @param pwd Contraseña de acceso
 * @param stmt Statement utilizado para conectarse a la base de datos.
-* @return 0 si añade el usuario correctamente, 41 si el usuario ya existía.
+* @return 0 si añade el usuario correctamente, -41 si el usuario ya existía.
 */
 private static int addUser(String username, String pwd, Statement stmt) 
 	throws SQLException {
@@ -33,7 +33,7 @@ private static int addUser(String username, String pwd, Statement stmt)
 		ResultSet rs = stmt.executeQuery(
 			"SELECT userId FROM User WHERE username = '" + username + "'");
 		if(rs.next()) 
-			return 41; 
+			return -41; 
 
 		String insUser = String.format(
 			"INSERT INTO User (username, password) VALUES ('%s', '%s')", username, pwd);
@@ -48,13 +48,40 @@ private static int addUser(String username, String pwd, Statement stmt)
 * por espacios.
 * @param stmt Statement utilizado para conectarse a la base de datos.
 * @return Si fields contiene 4 elementos, devolverá el resultado del método addUser 
-* principal (0 o 41), sino, devuelve 42 (consultar utils.Code)
+* principal (0 o -41), sino, devuelve -42 (consultar utils.Code)
 */
 private static int addUser(String[] fields, Statement stmt) throws SQLException {
 	if(fields.length == 4) {
 		return addUser(fields[2], fields[3], stmt);
 	}
-	return 42;
+	return -42;
+}
+
+
+private static int login(String username, String pwd, Statement stmt) throws SQLException {
+	String queryUserId = String.format(
+		"SELECT userId FROM User WHERE username = '%s' AND password = '%s'", username, pwd);
+	ResultSet userIdRS = stmt.executeQuery(queryUserId);
+	if(userIdRS.next()) { 
+		return 0;	
+	}
+	return -44; //auth fail
+}
+
+private static int login(String[] fields, Statement stmt) throws SQLException {
+	if(fields.length != 4) return -42;
+	if(Integer.parseInt(fields[0]) != 0) return -43; //User already logged in
+	return login(fields[2], fields[3], stmt);
+}
+
+private static int getUserId(String username, Statement stmt) throws SQLException {
+	String queryUserId = String.format(
+		"SELECT userId FROM User WHERE username = '%s'", username);
+	ResultSet userIdRS = stmt.executeQuery(queryUserId);
+	if(userIdRS.next()){ 
+		return userIdRS.getInt(1);
+	}
+	return -45;
 }
 
 
@@ -83,20 +110,33 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	        //if(msgReceived.equals("close")) break; //temporal
 
 	        //Implementar lógica aquí
-	        int res = 1; //Para guardar resultado de las llamadas.
+	        int res = -1; //resultado del comando
+	        String info1 = ""; //Informacion adcional para contestar al cliente
+	        String info2 = "";
 	        if(fields.length > 1){
 	        	switch(fields[1]) {
-	        		case "addUser": res = addUser(fields, stmt); break;
+	        		case "addUser": 
+	        			res = addUser(fields, stmt);
+	        			break;
+	        		case "login": 
+	        			res = login(fields, stmt);
+	        			if(res == 0) {
+	        				info1 = Integer.toString(getUserId(fields[2], stmt)); 
+	        				info2 = fields[2]; //devolvemos tambien el username
+	        			}
+	        			break;
 	        		case "exit": 
-	        			res = 3;
+	        			res = -3;
 	        			execute = false;
 	        			break;
+
 	        		default: break;
 	        	}
 	        }
 	        
 	        //Envíamos al cliente el resultado de su petición
-	        out.println(res); 	        
+	        String command = (res == -1) ? "unrecognized" : fields[1];
+	        out.println(command + " " + res + " " + info1 + " " + info2); 	        
 	    }
 	    
 	    con.close();

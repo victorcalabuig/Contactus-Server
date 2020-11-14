@@ -16,6 +16,26 @@ public class Client {
 */
 static private int currentUserId = 0;
 
+/**
+* Guarda el username actual para utilizarlo en el prompt.
+*/
+static private String currentUsername = "";
+
+/**
+* Comprueba si el comando login ha sido exitoso. En caso de exito, actualiza
+* el currentUserId y el currentUsername, abriendo así una sesión de usuario.
+* @param fields Contestación del servidor separada por espacios a la llamada
+* de login.
+*/
+private static void processLoginResult(String[] fields){
+	if(Integer.parseInt(fields[1]) == 0 && fields.length == 4){
+		currentUserId = Integer.valueOf(fields[2]);
+		currentUsername = fields[3];
+	}
+}
+
+
+
 public static void main(String[] args) throws IOException {
 	Scanner keyboard = new Scanner(System.in);
 	Socket clientSocket = new Socket("localhost", 8000);
@@ -26,6 +46,7 @@ public static void main(String[] args) throws IOException {
 
 	boolean execute = true;
 	while(execute){
+		System.out.print(currentUsername + "> ");
 		String keyboardInput = keyboard.nextLine(); 
 		//Se añade como cabecera el Id del usuario actual
 		String msgToServer = currentUserId + " " + keyboardInput; 
@@ -42,8 +63,17 @@ public static void main(String[] args) throws IOException {
 	    System.out.println("server response: " + res); //Comprobación
 
 	    //Implementar lógica tras contestación
-
-	    if(Integer.parseInt(res) == 3) execute = false;
+	    //Formato de mensaje recibido: "comando_ejecutado resultado info1 info2 ...."
+	    String[] fields = res.split(" ");
+	    if(fields.length > 0){
+	    	switch(fields[0]){
+	    		case "login": 
+	    			processLoginResult(fields);
+	    			break;
+	    		case "exit":
+	    			execute = false;
+	    	}
+	    }
 	}
 	    
 	clientSocket.close();
