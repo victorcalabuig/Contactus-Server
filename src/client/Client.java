@@ -34,6 +34,14 @@ private static void processLoginResult(String[] fields){
 	}
 }
 
+private static void processLogoutResult(String[] fields){
+	if(Integer.parseInt(fields[1]) == 0){
+		currentUserId = 0;
+		currentUsername = "";
+	}
+}
+
+
 /**
 * Comprubea si comando listUsers ha sido exitoso. En caso afirmativo, imprime
 * por pantalla los usuarios contenidos en el mensaje del servidor.
@@ -114,6 +122,9 @@ public static void main(String[] args) throws IOException {
 	    	switch(fields[0]){
 	    		case "login": 
 	    			processLoginResult(fields);
+	    			break;
+	    		case "logout":
+	    			processLogoutResult(fields);
 	    			break;
 	    		case "listUsers": 
 	    			processListUsersResult(fields);

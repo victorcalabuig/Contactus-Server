@@ -293,6 +293,9 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	        				info2 = fields[2]; //devolvemos tambien el username
 	        			}
 	        			break;
+	        		case "logout":
+	        			res = 0;
+	        			break;
 	        		case "addPosition":
 	        			res = addPosition(fields, stmt);
 	        			break;
