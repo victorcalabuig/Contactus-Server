@@ -21,6 +21,8 @@ static {
 	codes.put("-45", "userNotFound");
 	codes.put("-46", "userNotAuthenticated");
 
+	codes.put("-47", "permissionDenied");
+
 }
 
 }

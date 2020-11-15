@@ -29,13 +29,30 @@ public class DatabaseCreation {
     	+ "PRIMARY KEY (userId, time), "
     	+ "FOREIGN KEY (userId) REFERENCES User (userId) ON DELETE CASCADE )";	
 
+    /**
+    * El usuario admin (con contraseña admin) será el root por defecto del sistema. 
+    * Desde este ususario root se podrán crear mas usuarios admin.
+    */
+    static String insertAdminInUser = "INSERT INTO User (userId, username, password) " 
+        + "VALUES (1, 'admin', 'admin')";
+    static String insertAdminInAdmin = "INSERT INTO Admin " 
+        + "VALUES (1)";
+
     
     public static void main(String [] args) throws SQLException {
         Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db"); 
         Statement stmt = con.createStatement();
+
+        //tablas
         stmt.executeUpdate(userSQLCreate); 
         stmt.executeUpdate(adminSQLCreate); 
         stmt.executeUpdate(locationSQLCreate); 
+
+        //Insert del usuario root del sistema
+        stmt.executeUpdate(insertAdminInUser);
+        stmt.executeUpdate(insertAdminInAdmin);
+
+        
     }
     
 }

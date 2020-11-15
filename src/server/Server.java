@@ -138,6 +138,43 @@ private static boolean isNumeric(String num){
 }
 
 
+/**
+* Comrpueba si el usuario tiene permiso para ejecutar el comando listUsers
+* @param fields Mensaje recibido del cliente
+* @return 0 si exito, -47 si no esta autorizado.
+*/
+private static int listUsers(String[] fields, Statement stmt) throws SQLException {
+	if(!isAdmin(Integer.parseInt(fields[0]), stmt)) return -47;
+	return 0;
+}
+
+/**
+* Compruba si un usuario dado es Administrador o no.
+* @param userId usuario sobre el que se realiza la comprobacion
+* @return true si es admin, false si no.
+*/
+private static boolean isAdmin(int userId, Statement stmt) throws SQLException {
+	String adminIdQuery = String.format(
+		"SELECT userId FROM Admin WHERE userId = %d", userId);
+	ResultSet adminUserIdRS = stmt.executeQuery(adminIdQuery);
+	return adminUserIdRS.next();
+}
+
+/**
+* Consulta y devuelve los usuarios del sistema
+* @return String con los usernames separados por un espacio en blanco.
+*/ 
+private static String getUsers(Statement stmt) throws SQLException {
+	ResultSet usersRS = stmt.executeQuery("SELECT username FROM User");
+	String users = "";
+	while(usersRS.next()){
+		users += usersRS.getString(1) + " ";
+	}
+	return users;
+}
+
+
+
 public static void main(String[] args) throws IOException, InterruptedException,
 	SQLException {
 
@@ -180,6 +217,10 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	        			break;
 	        		case "addPosition":
 	        			res = addPosition(fields, stmt);
+	        			break;
+	        		case "listUsers":
+	        			res = listUsers(fields, stmt);
+	        			if(res == 0) info1 = getUsers(stmt);
 	        			break;
 	        		case "exit": 
 	        			res = 0;

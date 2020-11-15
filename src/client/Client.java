@@ -34,6 +34,14 @@ private static void processLoginResult(String[] fields){
 	}
 }
 
+private static void processListUsersResult(String[] fields){
+	if(Integer.parseInt(fields[1]) == 0){
+		for(int i = 2; i < fields.length; i++)
+			System.out.print(fields[i] + " ");
+		System.out.println();
+	}
+}
+
 
 
 public static void main(String[] args) throws IOException {
@@ -69,6 +77,9 @@ public static void main(String[] args) throws IOException {
 	    	switch(fields[0]){
 	    		case "login": 
 	    			processLoginResult(fields);
+	    			break;
+	    		case "listUsers": 
+	    			processListUsersResult(fields);
 	    			break;
 	    		case "exit":
 	    			execute = false;
