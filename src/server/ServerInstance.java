@@ -339,6 +339,8 @@ public void run() {
 	        			res = 0;
 	        			execute = false;
 	        			break;
+	        		case "debug":
+	        			res = 0;
 
 	        		default: break;
 	        	}

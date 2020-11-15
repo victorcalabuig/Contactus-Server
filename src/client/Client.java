@@ -21,6 +21,8 @@ static private int currentUserId = 0;
 */
 static private String currentUsername = "";
 
+static private boolean debug = false;
+
 /**
 * Comprueba si el comando login ha sido exitoso. En caso de exito, actualiza
 * el currentUserId y el currentUsername, abriendo así una sesión de usuario.
@@ -133,7 +135,8 @@ public static void main(String[] args) throws IOException {
 
 	    //Resultado que nos envía el servidor
 	    String res = in.readLine();
-	    System.out.println("server response: " + res); //Comprobación
+	    if(debug)
+	    	System.out.println("server response: " + res); //Comprobación
 
 	    //Implementar lógica tras contestación
 	    //Formato de mensaje recibido: "comando_ejecutado resultado info1 info2 ...."
@@ -157,6 +160,9 @@ public static void main(String[] args) throws IOException {
 	    			break;
 	    		case "exit":
 	    			execute = false;
+	    			break;
+	    		case "debug":
+	    			debug = !debug;
 	    			break;
 	    	}
 	    }
