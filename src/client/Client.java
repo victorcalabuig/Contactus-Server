@@ -89,6 +89,23 @@ private static void printPosition(String position){
 }
 
 
+/**
+* Crea una nueva instancia de la clase PositionSender e inicia un thread con 
+* su método run. 
+*/
+private static void startPositions(){
+	PositionSender ps = new PositionSender(currentUserId);
+	(new Thread(ps)).start();
+}
+
+/**
+* Si la llamada startPositions ha sido exitosa, llama al método startPositions.
+*/
+private static void processStartPositionsResult(String[] fields){
+	if(Integer.parseInt(fields[1]) == 0) startPositions();
+}
+
+
 public static void main(String[] args) throws IOException {
 	Scanner keyboard = new Scanner(System.in);
 	Socket clientSocket = new Socket("localhost", 8000);
@@ -132,8 +149,12 @@ public static void main(String[] args) throws IOException {
 	    		case "listPositions":
 	    			processListPositionsResult(fields);
 	    			break;
+	    		case "startPositions":
+	    			processStartPositionsResult(fields);
+	    			break;
 	    		case "exit":
 	    			execute = false;
+	    			break;
 	    	}
 	    }
 	}
