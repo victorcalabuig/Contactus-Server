@@ -34,6 +34,11 @@ private static void processLoginResult(String[] fields){
 	}
 }
 
+/**
+* Comprubea si comando listUsers ha sido exitoso. En caso afirmativo, imprime
+* por pantalla los usuarios contenidos en el mensaje del servidor.
+* @param fields Mensaje del servidor.
+*/
 private static void processListUsersResult(String[] fields){
 	if(Integer.parseInt(fields[1]) == 0){
 		for(int i = 2; i < fields.length; i++)
@@ -42,6 +47,38 @@ private static void processListUsersResult(String[] fields){
 	}
 }
 
+
+/**
+* Comprueba si listPositions ha tenido exito. En caso afirmatiov, imprime las 
+* posiciones recibidas del servidor, que siempre estan en la tercera posicion
+* del mensaje fields.
+* @param fields Mensaje del servidor. 
+*/
+private static void processListPositionsResult(String[] fields){
+	if(Integer.parseInt(fields[1]) == 0 && fields.length > 2){
+		//Print header of table
+		System.out.printf("%-25s%-5s%-15s%-5s%-15s\n", "Time", "|", "Latitude", "|", "Longitude");
+		System.out.println("------------------------------------------------------------");
+
+		String[] positions = fields[2].split("//");		
+		for(int i = 0; i < positions.length; i++){
+			printPosition(positions[i]);
+			System.out.println();
+		}
+	}
+}
+
+/**
+* Imprime una posición, separandola la posicion en fecha, latitud y longitud.
+*/
+private static void printPosition(String position){
+	String[] fields = position.split("\\|");
+	System.out.printf("%-25s", fields[0]);
+	System.out.printf("%-5s", "|");
+	System.out.printf("%-15s", fields[1]);
+	System.out.printf("%-5s", "|");
+	System.out.printf("%-15s", fields[2]);
+}
 
 
 public static void main(String[] args) throws IOException {
@@ -80,6 +117,9 @@ public static void main(String[] args) throws IOException {
 	    			break;
 	    		case "listUsers": 
 	    			processListUsersResult(fields);
+	    			break;
+	    		case "listPositions":
+	    			processListPositionsResult(fields);
 	    			break;
 	    		case "exit":
 	    			execute = false;

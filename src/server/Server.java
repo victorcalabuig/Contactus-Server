@@ -174,6 +174,80 @@ private static String getUsers(Statement stmt) throws SQLException {
 }
 
 
+/**
+* Comprueba que tipo de listPositions se ha ejecutado: El normal o el de 
+* administrador (y llama a dicho metodo)
+* @param fields mensaje recibido del cliente.
+* @param positions Se utiliza para guardar las posiciones en caso de exito.
+* @return 0 si exito, codigo de error sino.
+*/ 
+private static int listPositions(String[] fields, Statement stmt, 
+	StringBuilder positions) throws SQLException {
+	if(fields.length == 2) 
+		return listPositionsUser(Integer.parseInt(fields[0]), stmt, positions);
+	return listPositionsAdmin(fields, stmt, positions);
+}
+
+/**
+* Lista las posiciones del usuario que ejecuta el comando siempre que este
+* haya iniciado sesión. 
+* @param userId Usuario sobre el que se listan las posiciones.
+* @param positions Parametro de salida que se utiliza para almacenar las
+* posiciones del usuario. 
+* @return 0 si exito, -46 en caso de que el usuario no haya inciado sesión.
+*/
+private static int listPositionsUser(int userId, Statement stmt, 
+	StringBuilder positions) throws SQLException {
+	if(userId == 0) return -46; //usuario no ha iniciado sesion.
+	getPositions(userId, stmt, positions);
+	return 0;
+}
+
+/**
+* Lista las posiciones del usuario pasado como parametro con el comando 
+* listPositions. Solo disponible para usuarios administradores.
+* @param fields Mensaje recibido del cliente.
+* @param positions Parametro de salida que se utiliza para almacenar las
+* posiciones del usuario. 
+* @return 0 si exito; -47 si el usuario es administrador; -45 si el usuario
+* usuario pasado como parametro no existe (consultar diccionario de errores).
+*/
+private static int listPositionsAdmin(String[] fields, Statement stmt, 
+	StringBuilder positions) throws SQLException {
+	if(!isAdmin(Integer.parseInt(fields[0]), stmt)) return -47; //permission denied
+	int userId = getUserId(fields[2], stmt);
+	if (userId > 0) { //usuario existe
+		getPositions(userId, stmt, positions); 
+		return 0;
+	} 
+	return userId; //usuario no existe
+}
+
+/**
+* Almacena en el StringBuilder positions todas las posiciones del usuario indicado
+* por userId. El formato de cada posicion es: fecha_hora|latitud|longitud. Las 
+* posiciones se separan entre si utilizando el simbolo '//' sin las comillas.
+* @param userId Id del usuario sobre el que se consultan las posiciones.
+* @param positions Parametro de salida que se utiliza para almacenar las
+* posiciones del usuario. 
+*/
+private static void getPositions(int userId, Statement stmt, 
+	StringBuilder positions) throws SQLException {
+	String queryPositions = String.format(
+		"SELECT time, latitude, longitude FROM Location WHERE userId = %d", 
+		userId);
+	ResultSet posRS = stmt.executeQuery(queryPositions);
+	while(posRS.next()){
+		//cambiamos el espacio entre fecha y hora por una '_':
+		String time = posRS.getTimestamp(1).toString().replace(" ", "_"); 
+		positions.append(time + "|");
+		positions.append(posRS.getString(2) + "|");
+		positions.append(posRS.getString(3) + "//");
+	}
+}
+
+
+
 
 public static void main(String[] args) throws IOException, InterruptedException,
 	SQLException {
@@ -200,9 +274,13 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	        //if(msgReceived.equals("close")) break; //temporal
 
 	        //Implementar lógica aquí
-	        int res = -1; //resultado del comando
-	        String info1 = ""; //Informacion adcional para contestar al cliente
+	        
+
+	        //Informacion adcional para contestar al cliente
+	        String info1 = ""; 
 	        String info2 = "";
+	        StringBuilder info3 = new StringBuilder();
+	        int res = -1; //resultado del comando
 	        if(fields.length > 1){
 	        	switch(fields[1]) {
 	        		case "addUser": 
@@ -222,6 +300,10 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	        			res = listUsers(fields, stmt);
 	        			if(res == 0) info1 = getUsers(stmt);
 	        			break;
+	        		case "listPositions": 
+	        			res = listPositions(fields, stmt, info3);
+	        			break;	
+
 	        		case "exit": 
 	        			res = 0;
 	        			execute = false;
@@ -231,9 +313,14 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	        	}
 	        }
 	        
-	        //Envíamos al cliente el resultado de su petición
+	        //Preparacion del mensaje a envíar:
 	        String command = (res == -1) ? "unrecognized" : fields[1];
-	        out.println(command + " " + res + " " + info1 + " " + info2); 	        
+	        String msgToSend = command + " " + res + " " + info1 + " " + info2 + " " 
+	        	+ info3.toString(); 
+	        msgToSend = msgToSend.replaceAll("\\s{2,}", " "); //eliminamos dobles/triples espacios
+
+	        //Envio del mensaje:
+	        out.println(msgToSend);; 	        
 	    }
 	    
 	    con.close();
