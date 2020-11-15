@@ -95,7 +95,10 @@ private static void printPosition(String position){
 */
 private static void startPositions(){
 	PositionSender ps = new PositionSender(currentUserId);
-	(new Thread(ps)).start();
+	Thread posSenderThread = new Thread(ps);
+	posSenderThread.setDaemon(true);
+	posSenderThread.start();
+	//(new Thread(ps)).start();
 }
 
 /**

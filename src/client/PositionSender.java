@@ -49,7 +49,7 @@ private static void sendPosition(PrintWriter out){
 	String msgToServer = userId + " addPosition " + latitude + " " + longitude;
 	out.println(msgToServer);
 	out.flush();
-	System.out.println("Message sent by a thread!!!!");
+	//System.out.println("Message sent by a thread!!!!");
 }
 
 }
