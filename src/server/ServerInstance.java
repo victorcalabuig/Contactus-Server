@@ -121,14 +121,17 @@ private static int getUserId(String username, Statement stmt) throws SQLExceptio
 /**
 * Añade una posición a la base de datos asociada al usuario que envía el comando.
 */
-private static int addPosition(int userId, double latitude, double longitude, 
-	Statement stmt) throws SQLException {
+private static int addPosition(int userId, double latitude, double longitude, Statement stmt) throws SQLException {
 	Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 	long time = timestamp.getTime();
 	String updatePos = String.format(
 		"INSERT INTO Location VALUES ('%d', '%d', '%f', '%f')", 
 		userId, time, latitude, longitude);
-	stmt.executeUpdate(updatePos);
+	try{
+		stmt.executeUpdate(updatePos);
+	}catch (Exception e){
+		System.out.println("patata");
+	}
 	return 0;
 }
 
@@ -369,7 +372,6 @@ private static boolean userLoggedIn(String[] fields){
 */
 public void run() {
 	try {
-
 		Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db"); 
 		Statement stmt = con.createStatement();
 
@@ -412,6 +414,7 @@ public void run() {
 	        				info1 = Integer.toString(getUserId(fields[2], stmt)); 
 	        				info2 = fields[2]; //devolvemos tambien el username
 	        			}
+	        			stmt.close();
 	        			break;
 	        		case "logout":
 	        			res = 0;

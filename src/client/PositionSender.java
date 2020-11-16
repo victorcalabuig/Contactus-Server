@@ -5,7 +5,9 @@ import java.io.PrintWriter;
 import java.io.BufferedReader;
 import java.net.Socket;
 import java.io.IOException;
+import java.util.Random;
 
+import utils.ImprovedNoise;
 /**
 * Esta clase implementa la interfaz runnable y se ejecuta en un Thread 
 * secundario cuando desde el cliente se ejecuta el comando startPositions.
@@ -15,8 +17,11 @@ public class PositionSender implements Runnable {
 private static int userId;
 
 //valores prueba, en la realidad debería obtenerse de alguna forma.
-private static double latitude = 3.14;
-private static double longitude = 3.14;
+
+// Podríamos usar Perlin noise para que los valores de la posición estén cercanos entre si
+private static ImprovedNoise n1;
+private static double latitude = ImprovedNoise.randNoise();
+private static double longitude = ImprovedNoise.randNoise();
 
 public PositionSender(int userId){
 	this.userId = userId;
