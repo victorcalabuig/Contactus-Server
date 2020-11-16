@@ -90,7 +90,7 @@ private static void processListPositionsResult(String[] fields){
 */
 private static void printPosition(String position){
 	String[] fields = position.split("\\|");
-	System.out.printf("%-25s", fields[0]);
+	System.out.printf("%-25s", fields[0].replace("_"," "));
 	System.out.printf("%-5s", "|");
 	System.out.printf("%-15s", fields[1]);
 	System.out.printf("%-5s", "|");
