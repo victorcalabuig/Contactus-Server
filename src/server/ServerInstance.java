@@ -64,6 +64,19 @@ private static int addUser(String username, String pwd, Statement stmt)
 		return 0;
 }
 
+private static int removeUser(String username, String pwd, Statement stmt) throws SQLException {
+		ResultSet rs = stmt.executeQuery("SELECT userId FROM User WHERE username LIKE '" + username + "' AND password LIKE '" + pwd + "'");
+		if(!rs.next()) 
+			return -45;
+
+		String remUser = String.format("DELETE FROM User WHERE (username LIKE '%s' AND password LIKE '%s')", username, pwd);
+		stmt.executeUpdate(remUser);
+		return 0;
+
+	}
+
+
+
 /**
 * Método que envuelve a addUser y comprueba que el número de parametros es 4 antes
 * de ejecutar el método addUser principal.
@@ -79,6 +92,13 @@ private static int addUser(String[] fields, Statement stmt) throws SQLException 
 	}
 	return -42;
 }
+
+private static int removeUser(String[] fields, Statement stmt) throws SQLException {
+		if(fields.length == 4) {
+			return removeUser(fields[2], fields[3], stmt);
+		}
+		return -42;
+	}
 
 
 /**
@@ -405,6 +425,9 @@ public void run() {
 	        	switch(fields[1]) {
 	        		case "addUser": 
 	        			res = addUser(fields, stmt);
+	        			break;
+	        		case "removeUser":
+	        			res = removeUser(fields, stmt);
 	        			break;
 	        		case "login": 
 	        			res = login(fields, stmt);
