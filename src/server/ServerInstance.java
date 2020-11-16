@@ -259,12 +259,21 @@ private static void getPositions(int userId, Statement stmt,
 }
 
 /** 
-* Comprubea si el usuario a iniciado sesión para poder ejecutar el comando 
+* Comprubea si el usuario ha iniciado sesión para poder ejecutar el comando 
 * startPositions.
 */
 private static int startPositions(String[] fields){
-	if(Integer.parseInt(fields[0]) > 0) return 0;
+	if(userLoggedIn(fields)) return 0;
 	return -46;
+}
+
+private static int stopPositions(String[] fields){
+	if(userLoggedIn(fields)) return 0;
+	return -46;
+}
+
+private static boolean userLoggedIn(String[] fields){
+	return Integer.parseInt(fields[0]) > 0;
 }
 
 
@@ -334,6 +343,9 @@ public void run() {
 	        			break;	
 	        		case "startPositions": 
 	        			res = startPositions(fields);
+	        			break;
+	        		case "stopPositions":
+	        			res = stopPositions(fields);
 	        			break;
 	        		case "exit": 
 	        			res = 0;

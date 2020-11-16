@@ -21,6 +21,12 @@ static private int currentUserId = 0;
 */
 static private String currentUsername = "";
 
+/**
+* Thread utilizado para enviar posicioes automaticamente cuando se utiliza 
+* el comando startPositions.
+*/
+static private Thread posSenderThread;
+
 static private boolean debug = false;
 
 /**
@@ -93,14 +99,13 @@ private static void printPosition(String position){
 
 /**
 * Crea una nueva instancia de la clase PositionSender e inicia un thread con 
-* su método run. 
+* el metodo run de la clase PositionSender.
 */
 private static void startPositions(){
 	PositionSender ps = new PositionSender(currentUserId);
-	Thread posSenderThread = new Thread(ps);
+	posSenderThread = new Thread(ps);
 	posSenderThread.setDaemon(true);
 	posSenderThread.start();
-	//(new Thread(ps)).start();
 }
 
 /**
@@ -108,6 +113,23 @@ private static void startPositions(){
 */
 private static void processStartPositionsResult(String[] fields){
 	if(Integer.parseInt(fields[1]) == 0) startPositions();
+}
+
+
+/**
+* Manda un interrupt al thread posSenderThread si este este activo.
+*/
+private static void stopPositions(){
+	if(posSenderThread != null && posSenderThread.isAlive()){
+		posSenderThread.interrupt();
+	}
+}
+
+/**
+* LLama a stopPositions si el resultado del comando stopPositions es exitoso (0).
+*/
+private static void processStopPositionsResult(String[] fields){
+	if(Integer.parseInt(fields[1]) == 0) stopPositions();
 }
 
 
@@ -157,6 +179,9 @@ public static void main(String[] args) throws IOException {
 	    			break;
 	    		case "startPositions":
 	    			processStartPositionsResult(fields);
+	    			break;
+	    		case "stopPositions":
+	    			processStopPositionsResult(fields);
 	    			break;
 	    		case "exit":
 	    			execute = false;

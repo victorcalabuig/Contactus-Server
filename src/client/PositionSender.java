@@ -37,11 +37,11 @@ public void run(){
 				sendPosition(out);
 				Thread.sleep(5000);
 			} catch(InterruptedException e){
-
+				//System.out.println("The thread of the user " + userId + "has been interrupted");
+				return;
 			}
 		}
 	} catch (IOException e){
-
 	}
 }
 
