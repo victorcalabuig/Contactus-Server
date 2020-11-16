@@ -46,6 +46,7 @@ private static void processLogoutResult(String[] fields){
 	if(Integer.parseInt(fields[1]) == 0){
 		currentUserId = 0;
 		currentUsername = "";
+		stopPositions();
 	}
 }
 
