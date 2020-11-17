@@ -41,7 +41,6 @@ private static void processLoginResult(String[] fields){
 		currentUsername = fields[3];
 	}
 }
-
 private static void processLogoutResult(String[] fields){
 	if(Integer.parseInt(fields[1]) == 0){
 		currentUserId = 0;
@@ -49,8 +48,6 @@ private static void processLogoutResult(String[] fields){
 		stopPositions();
 	}
 }
-
-
 /**
 * Comprubea si comando listUsers ha sido exitoso. En caso afirmativo, imprime
 * por pantalla los usuarios contenidos en el mensaje del servidor.
@@ -63,8 +60,6 @@ private static void processListUsersResult(String[] fields){
 		System.out.println();
 	}
 }
-
-
 /**
 * Comprueba si listPositions ha tenido exito. En caso afirmatiov, imprime las 
 * posiciones recibidas del servidor, que siempre estan en la tercera posicion
@@ -84,7 +79,6 @@ private static void processListPositionsResult(String[] fields){
 		}
 	}
 }
-
 /**
 * Imprime una posición, separandola la posicion en fecha, latitud y longitud.
 */
@@ -96,8 +90,6 @@ private static void printPosition(String position){
 	System.out.printf("%-5s", "|");
 	System.out.printf("%-15s", fields[2]);
 }
-
-
 /**
 * Crea una nueva instancia de la clase PositionSender e inicia un thread con 
 * el metodo run de la clase PositionSender.
@@ -108,15 +100,12 @@ private static void startPositions(){
 	posSenderThread.setDaemon(true);
 	posSenderThread.start();
 }
-
 /**
 * Si la llamada startPositions ha sido exitosa, llama al método startPositions.
 */
 private static void processStartPositionsResult(String[] fields){
 	if(Integer.parseInt(fields[1]) == 0) startPositions();
 }
-
-
 /**
 * Manda un interrupt al thread posSenderThread si este este activo.
 */
@@ -132,8 +121,6 @@ private static void stopPositions(){
 private static void processStopPositionsResult(String[] fields){
 	if(Integer.parseInt(fields[1]) == 0) stopPositions();
 }
-
-
 public static void main(String[] args) throws IOException {
 	Scanner keyboard = new Scanner(System.in);
 	Socket clientSocket = new Socket("localhost", 8000);
@@ -193,8 +180,6 @@ public static void main(String[] args) throws IOException {
 	    	}
 	    }
 	}
-	    
 	clientSocket.close();
 }
-
 }
