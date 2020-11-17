@@ -9,6 +9,7 @@ public final class ImprovedNoise {
         rand.setSeed(System.currentTimeMillis());
         return noise(rand.nextDouble(),rand.nextDouble(),rand.nextDouble());
     }
+
     static public double noise(double x, double y, double z) {
         int X = (int)Math.floor(x) & 255,                  // FIND UNIT CUBE THAT
                 Y = (int)Math.floor(y) & 255,                  // CONTAINS POINT.
