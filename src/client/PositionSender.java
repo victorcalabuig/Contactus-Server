@@ -5,8 +5,6 @@ import java.io.PrintWriter;
 import java.io.BufferedReader;
 import java.net.Socket;
 import java.io.IOException;
-import java.util.Random;
-
 import utils.ImprovedNoise;
 /**
 * Esta clase implementa la interfaz runnable y se ejecuta en un Thread 
@@ -19,12 +17,11 @@ private static int userId;
 //valores prueba, en la realidad debería obtenerse de alguna forma.
 
 // Podríamos usar Perlin noise para que los valores de la posición estén cercanos entre si
-private static ImprovedNoise n1;
-private static double latitude = ImprovedNoise.randNoise();
-private static double longitude = ImprovedNoise.randNoise();
+private static double latitude = 0;
+private static double longitude = 0;
 
 public PositionSender(int userId){
-	this.userId = userId;
+	PositionSender.userId = userId;
 }
 
 public void run(){
@@ -32,23 +29,40 @@ public void run(){
 		Socket clientSocket = new Socket("localhost", 8000);
 
 		PrintWriter out = new PrintWriter(clientSocket.getOutputStream());
-		BufferedReader in = new BufferedReader(
-			new InputStreamReader(clientSocket.getInputStream()));
+		BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-		boolean execute = true;
-		while(execute){
+		while(true){
 			try{
-				//calculatePosition //faltaría obtener la geolocalizacion.
+				calculatePosition(); //faltaría obtener la geolocalizacion.
 				sendPosition(out);
-				Thread.sleep(5000);
+				Thread.sleep(1000);
 			} catch(InterruptedException e){
 				//System.out.println("The thread of the user " + userId + "has been interrupted");
 				return;
 			}
 		}
 	} catch (IOException e){
+		System.out.println(e.getMessage());
 	}
 }
+
+private static void calculatePosition(){
+	ImprovedNoise imprN = new ImprovedNoise();
+	latitude = map(imprN.noise(1),-1,1,-90,90);
+	longitude = map(imprN.noise(2),-1,1,-180,180);
+}
+	/**
+	 * Toma una variable y la define entre el rango especificado
+	 * @param val		Valor de entrada
+	 * @param in_min	Valor mínimo que toma la variable
+	 * @param in_max	Valor máximo que toma la variable
+	 * @param out_min	Valor mínimo que queremos que tome
+	 * @param out_max	Valor máximo que queremos que tome
+	 * @return variable de entrada acotada entre dos valores definidos
+	 */
+	private static double map(double val, double in_min, double in_max, double out_min, double out_max) {
+		return (val - in_min) * (out_max - out_min) / (in_max - in_min) + out_min;
+	}
 
 private static void sendPosition(PrintWriter out){
 	String msgToServer = userId + " addPosition " + latitude + " " + longitude;
