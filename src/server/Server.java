@@ -18,29 +18,29 @@ import java.sql.Timestamp;
 import utils.Code;
 
 /**
-* Arranca el servidor y escucha en el puerto indicado conexiones de la clase
-* Client o de la clase PositionSender. Cada vez que recibe una conexion, inicia
-* un nuevo thread para gestionar esa conexion y sigue escuchando para nuevas 
-* conexiones.
-*/
+ * Arranca el servidor y escucha en el puerto indicado conexiones de la clase
+ * Client o de la clase PositionSender. Cada vez que recibe una conexion, inicia
+ * un nuevo thread para gestionar esa conexion y sigue escuchando para nuevas
+ * conexiones.
+ */
 public class Server {
 
-private static int port = 8000;
+	private static int port = 8000;
 
 
-public static void main(String[] args) throws IOException, InterruptedException,
-	SQLException {
+	public static void main(String[] args) throws IOException, InterruptedException,
+			SQLException {
 
-	    ServerSocket serverSocket = new ServerSocket(port);
-	    
-	    boolean listen = true;
-	    while(listen){
-	    	System.out.println("Waiting for client conexions...");
-	    	Socket clientSocket = serverSocket.accept();
-	    	ServerInstance serverInstance = new ServerInstance(clientSocket);
-	    	(new Thread(serverInstance)).start(); //Nuevo thread
-	    }
-	    serverSocket.close();
-}
+		ServerSocket serverSocket = new ServerSocket(port);
+
+		boolean listen = true;
+		while(listen){
+			System.out.println("Waiting for client conexions...");
+			Socket clientSocket = serverSocket.accept();
+			ServerInstance serverInstance = new ServerInstance(clientSocket);
+			(new Thread(serverInstance)).start(); //Nuevo thread
+		}
+		serverSocket.close();
+	}
 
 }

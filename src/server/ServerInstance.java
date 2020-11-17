@@ -62,42 +62,12 @@ public class ServerInstance implements Runnable {
 				"INSERT INTO User (username, password) VALUES ('%s', '%s')", username, pwd);
 		stmt.executeUpdate(insUser);
 		return 0;
-}
-
-private static int removeUser(String username, String pwd, Statement stmt) throws SQLException {
-		ResultSet rs = stmt.executeQuery("SELECT userId FROM User WHERE username LIKE '" + username + "' AND password LIKE '" + pwd + "'");
-		if(!rs.next()) 
-			return -45;
-
-		String remUser = String.format("DELETE FROM User WHERE (username LIKE '%s' AND password LIKE '%s')", username, pwd);
-		stmt.executeUpdate(remUser);
-		return 0;
-
 	}
 
-
-
-/**
-* Método que envuelve a addUser y comprueba que el número de parametros es 4 antes
-* de ejecutar el método addUser principal.
-* @param fields Array de Strings que contiene el mensaje recibido del cliente separado
-* por espacios.
-* @param stmt Statement utilizado para conectarse a la base de datos.
-* @return Si fields contiene 4 elementos, devolverá el resultado del método addUser 
-* principal (0 o -41), sino, devuelve -42 (consultar utils.Code)
-*/
-private static int addUser(String[] fields, Statement stmt) throws SQLException {
-	if(fields.length == 4) {
-		return addUser(fields[2], fields[3], stmt);
-	}
-
-private static int removeUser(String[] fields, Statement stmt) throws SQLException {
-		if(fields.length == 4) {
-			return removeUser(fields[2], fields[3], stmt);
-		}
-		return -42;
-	}
-
+	private static int removeUser (String username, String pwd, Statement stmt) throws SQLException{
+		ResultSet rs = stmt.executeQuery("SELECT username FROM User WHERE username LIKE '" + username + "' AND password LIKE '" + pwd + "'");
+		if(!rs.next())
+			return 43;
 
 		String remUser = String.format("DELETE FROM User WHERE (username LIKE '%s' AND password LIKE '%s')", username, pwd);
 		int usuarioId = getUserId(username, stmt);
@@ -399,105 +369,125 @@ private static int removeUser(String[] fields, Statement stmt) throws SQLExcepti
 	}
 
 
-/**
-* Este metodo es de la interfaz Runnable. Envuelve el bloque que se ejecutara 
-* cuando se inice un Thread de tipo ServerInstance. (Antes este metodo era en
-* realidad el metodo main de la clase server).
-*/
-public void run() {
-	try {
+	/**
+	 * Comprubea si el usuario ha iniciado sesión para poder ejecutar el comando
+	 * startPositions.
+	 */
+	private static int startPositions(String[] fields){
+		if(userLoggedIn(fields)) return 0;
+		return -46;
+	}
 
-		Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db"); 
-		Statement stmt = con.createStatement();
+	private static int stopPositions(String[] fields){
+		if(userLoggedIn(fields)) return 0;
+		return -46;
+	}
 
-	    //ServerSocket serverSocket = new ServerSocket(8000);
-	    //System.out.println("Waiting for client conexions...");
-	    //Socket clientSocket = serverSocket.accept();
-	    System.out.println("Conection established from a ServerInstance!");
-	    
-	    BufferedReader in = new BufferedReader(
-	        new InputStreamReader(clientSocket.getInputStream()));
-	    PrintWriter out = new PrintWriter(
-	        clientSocket.getOutputStream(), true);
-	    
-	    boolean execute = true;
-	    while(execute){
-	    	//Mensaje recibido del cliente (lo dividimos por palabras con split):
-	        String msgReceived = in.readLine();
-	        String[] fields = msgReceived.split(" ");
-	        System.out.print("Message received from user " + fields[0] + ": ");
-	        System.out.println(msgReceived);
+	private static boolean userLoggedIn(String[] fields){
+		return Integer.parseInt(fields[0]) > 0;
+	}
 
-	        //if(msgReceived.equals("close")) break; //temporal
 
-	        //Implementar lógica aquí
-	        
+	/**
+	 * Este metodo es de la interfaz Runnable. Envuelve el bloque que se ejecutara
+	 * cuando se inice un Thread de tipo ServerInstance. (Antes este metodo era en
+	 * realidad el metodo main de la clase server).
+	 */
+	public void run() {
+		try {
+			Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db");
+			Statement stmt = con.createStatement();
 
-	        //Informacion adcional para contestar al cliente
-	        String info1 = ""; 
-	        String info2 = "";
-	        StringBuilder info3 = new StringBuilder();
-	        int res = -1; //resultado del comando
-	        if(fields.length > 1){
-	        	switch(fields[1]) {
-	        		case "addUser": 
-	        			res = addUser(fields, stmt);
-	        			break;
-	        		case "removeUser":
-	        			res = removeUser(fields, stmt);
-	        			break;
-	        		case "login": 
-	        			res = login(fields, stmt);
-	        			if(res == 0) {
-	        				info1 = Integer.toString(getUserId(fields[2], stmt)); 
-	        				info2 = fields[2]; //devolvemos tambien el username
-	        			}
-	        			break;
-	        		case "logout":
-	        			res = 0;
-	        			break;
-	        		case "addPosition":
-	        			res = addPosition(fields, stmt);
-	        			break;
-	        		case "listUsers":
-	        			res = listUsers(fields, stmt);
-	        			if(res == 0) info1 = getUsers(stmt);
-	        			break;
-	        		case "listPositions": 
-	        			res = listPositions(fields, stmt, info3);
-	        			break;	
-	        		case "startPositions": 
-	        			res = startPositions(fields);
-	        			break;
-	        		case "stopPositions":
-	        			res = stopPositions(fields);
-	        			break;
-	        		case "exit": 
-	        			res = 0;
-	        			execute = false;
-	        			break;
-	        		case "debug":
-	        			res = 0;
+			//ServerSocket serverSocket = new ServerSocket(8000);
+			//System.out.println("Waiting for client conexions...");
+			//Socket clientSocket = serverSocket.accept();
+			System.out.println("Conection established from a ServerInstance!");
 
-	        		default: break;
-	        	}
-	        }
-	        
-	        //Preparacion del mensaje a envíar:
-	        String command = (res == -1) ? "unrecognized" : fields[1];
-	        String msgToSend = command + " " + res + " " + info1 + " " + info2 + " " 
-	        	+ info3.toString(); 
-	        msgToSend = msgToSend.replaceAll("\\s{2,}", " "); //eliminamos dobles/triples espacios
+			BufferedReader in = new BufferedReader(
+					new InputStreamReader(clientSocket.getInputStream()));
+			PrintWriter out = new PrintWriter(
+					clientSocket.getOutputStream(), true);
 
-	        //Envio del mensaje:
-	        out.println(msgToSend);; 	        
-	    }
-	
-		con.close();
-		clientSocket.close();
+			boolean execute = true;
+			while(execute){
+				//Mensaje recibido del cliente (lo dividimos por palabras con split):
+				String msgReceived = in.readLine();
+				String[] fields = msgReceived.split(" ");
+				System.out.print("Message received from user " + fields[0] + ": ");
+				System.out.println(msgReceived);
 
-	} catch(IOException|SQLException e){
-		e.printStackTrace();
+				//if(msgReceived.equals("close")) break; //temporal
+
+				//Implementar lógica aquí
+
+
+				//Informacion adcional para contestar al cliente
+				String info1 = "";
+				String info2 = "";
+				StringBuilder info3 = new StringBuilder();
+				int res = -1; //resultado del comando
+				if(fields.length > 1){
+					switch(fields[1]) {
+						case "addUser":
+							res = addUser(fields, stmt);
+							break;
+						case "removeUser":
+							res = removeUser(fields, stmt);
+							break;
+						case "login":
+							res = login(fields, stmt);
+							if(res == 0) {
+								info1 = Integer.toString(getUserId(fields[2], stmt));
+								info2 = fields[2]; //devolvemos tambien el username
+							}
+							stmt.close();
+							break;
+						case "logout":
+							res = 0;
+							break;
+						case "addPosition":
+							res = addPosition(fields, stmt);
+							break;
+						case "listUsers":
+							res = listUsers(fields, stmt);
+							if(res == 0) info1 = getUsers(stmt);
+							break;
+						case "listPositions":
+							res = listPositions(fields, stmt, info3);
+							break;
+						case "startPositions":
+							res = startPositions(fields);
+							break;
+						case "stopPositions":
+							res = stopPositions(fields);
+							break;
+						case "exit":
+							res = 0;
+							execute = false;
+							break;
+						case "debug":
+							res = 0;
+
+						default: break;
+					}
+				}
+
+				//Preparacion del mensaje a envíar:
+				String command = (res == -1) ? "unrecognized" : fields[1];
+				String msgToSend = command + " " + res + " " + info1 + " " + info2 + " "
+						+ info3.toString();
+				msgToSend = msgToSend.replaceAll("\\s{2,}", " "); //eliminamos dobles/triples espacios
+
+				//Envio del mensaje:
+				out.println(msgToSend);;
+			}
+
+			con.close();
+			clientSocket.close();
+
+		} catch(IOException|SQLException e){
+			e.printStackTrace();
+		}
 	}
 
 }

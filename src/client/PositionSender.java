@@ -35,7 +35,7 @@ public void run(){
 
 		while(true){
 			try{
-				calculatePosition(0.1); //faltaría obtener la geolocalizacion.
+				calculatePosition(0.1);
 				sendPosition(out);
 				Thread.sleep(1000);
 			} catch(InterruptedException e){
@@ -60,7 +60,7 @@ public void run(){
 		longitude = map(imprN.noise(2),-1,1,-180,180);
 	}
 	int nextOp = r1.nextInt(3);
-	switch (nextOp){
+		switch (nextOp){ //Decidimos si movernos solo en la latitud, longitud o en ambas
 		case 0:
 			latitude += map(imprN.noise(1),-1,1,-distance/2,distance/2);
 			break;
