@@ -40,6 +40,7 @@ public static void main(String[] args) throws IOException, InterruptedException,
 	    	ServerInstance serverInstance = new ServerInstance(clientSocket);
 	    	(new Thread(serverInstance)).start(); //Nuevo thread
 	    }
+
 	    serverSocket.close();
 }
 

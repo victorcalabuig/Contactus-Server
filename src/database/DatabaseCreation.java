@@ -51,6 +51,7 @@ public class DatabaseCreation {
         //Insert del usuario root del sistema
         stmt.executeUpdate(insertAdminInUser);
         stmt.executeUpdate(insertAdminInAdmin);
+
         
     }
     
