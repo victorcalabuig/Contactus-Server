@@ -433,6 +433,7 @@ public class ServerInstance implements Runnable {
 							break;
 						case "removeUser":
 							res = removeUser(fields, stmt);
+							break;
 						case "login":
 							res = login(fields, stmt);
 							if(res == 0) {
