@@ -59,8 +59,23 @@ public void run(){
 		latitude = map(imprN.noise(1),-1,1,-90,90);
 		longitude = map(imprN.noise(2),-1,1,-180,180);
 	}
-	latitude += map(imprN.noise(1),-1,1,-distance/2,distance/2);
-	longitude += map(imprN.noise(1),-1,1,-distance/2,distance/2);
+	int nextOp = r1.nextInt(3);
+	switch (nextOp){
+		case 0:
+			latitude += map(imprN.noise(1),-1,1,-distance/2,distance/2);
+			break;
+		case 1:
+			longitude += map(imprN.noise(1),-1,1,-distance/2,distance/2);
+			break;
+		case 2:
+			latitude += map(imprN.noise(1),-1,1,-distance/2,distance/2);
+			longitude += map(imprN.noise(1),-1,1,-distance/2,distance/2);
+			break;
+		case 3:
+			latitude -= map(imprN.noise(1),-1,1,-distance/2,distance/2);
+			longitude -= map(imprN.noise(1),-1,1,-distance/2,distance/2);
+			break;
+	}
 	//Comprobamos que no salimos de los límites y si salimos de ellos, nos quedamos en ellos.
 	if (latitude>90){
 		latitude=90;
