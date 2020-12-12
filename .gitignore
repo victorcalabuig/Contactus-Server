@@ -1,5 +1,11 @@
-classes/
+# Database
 Contactus.db
+
+# IntelliJ
 /contactus.iml
 /.idea/
+out/
+
+# Victor
 buildComands.txt
+classes/
