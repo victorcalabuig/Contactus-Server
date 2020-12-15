@@ -74,19 +74,18 @@ public class ServerInstance implements Runnable {
 		stmt.executeUpdate(String.format("INSERT INTO Healthy VALUES (%d)", userId));
 	}
 
+	/**
+	 * Borra un usuario y toda su información relacionada en cascada (posiciones, historial, etc).
+	 * (las posiciones y el resto de información relacionado con el user se borra automáticamente
+	 * gracias a poner en sqlite DELETE CASCADE en los foreign keys de userId).
+	 * @return 0 sí consigue borrar un usuario; -4 si no encuentra el usuario a borrar o falla la
+	 * contraseña.
+	 */
 	private static int removeUser (String username, String pwd, Statement stmt) throws SQLException{
-		ResultSet rs = stmt.executeQuery("SELECT username FROM User WHERE username LIKE '" + username + "' AND password LIKE '" + pwd + "'");
-		if(!rs.next())
-			return 43;
-
-		String remUser = String.format("DELETE FROM User WHERE (username LIKE '%s' AND password LIKE '%s')", username, pwd);
-		int usuarioId = getUserId(username, stmt);
-		String remLocation = String.format("DELETE FROM Location WHERE (userId = '%s')", usuarioId);
-
-		stmt.executeUpdate(remUser);
-		stmt.executeUpdate(remLocation);
-
-		return 0;
+		int deleted = stmt.executeUpdate(String.format(
+				"DELETE FROM User WHERE (username = '%s' AND password = '%s')", username, pwd));
+		System.out.println("deleted: " + deleted);
+		return deleted > 0 ? 0 : -4;
 	}
 
 	/**
@@ -109,8 +108,7 @@ public class ServerInstance implements Runnable {
 		if (fields.length == 4) {
 			return removeUser(fields[2], fields[3], stmt);
 		}
-
-		return 42;
+		return -42;
 	}
 
 
@@ -445,6 +443,9 @@ public class ServerInstance implements Runnable {
 							break;
 						case "removeUser":
 							res = removeUser(fields, stmt);
+							if(res == 0){
+								info1 = Integer.toString(getUserId(fields[2], stmt));
+							}
 							break;
 						case "login":
 							res = login(fields, stmt);

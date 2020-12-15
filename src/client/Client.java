@@ -29,6 +29,24 @@ public class Client {
 
 	static private boolean debug = false;
 
+	private static void processRemoveUserResult(String[] fields){
+		if(commandSuccess(fields)){
+			if(Integer.parseInt(fields[2]) == currentUserId)
+				logout();
+		}
+	}
+	/**
+	 *
+	 * @param fields Mensaje recibido del servidor después de aplicarle el método
+	 * split(" ")
+	 * @return True si la segunda palabra del mensaje (fields[1]) es 0, que indica
+	 * que el comando se ha ejecutado con éxtio.
+	 */
+	private static boolean commandSuccess(String[] fields){
+		return Integer.parseInt(fields[1]) == 0;
+	}
+
+
 	/**
 	 * Comprueba si el comando login ha sido exitoso. En caso de exito, actualiza
 	 * el currentUserId y el currentUsername, abriendo así una sesión de usuario.
@@ -41,13 +59,21 @@ public class Client {
 			currentUsername = fields[3];
 		}
 	}
-	private static void processLogoutResult(String[] fields){
-		if(Integer.parseInt(fields[1]) == 0){
-			currentUserId = 0;
-			currentUsername = "";
-			stopPositions();
-		}
+
+	private static void processLogoutResult(String[] fields) {
+		if (Integer.parseInt(fields[1]) == 0)
+			logout();
 	}
+
+	/**
+	 * Logout by modifying user client vairables.
+	 */
+	private static void logout(){
+		currentUserId = 0;
+		currentUsername = "";
+		stopPositions();
+	}
+
 	/**
 	 * Comprubea si comando listUsers ha sido exitoso. En caso afirmativo, imprime
 	 * por pantalla los usuarios contenidos en el mensaje del servidor.
@@ -153,6 +179,9 @@ public class Client {
 			String[] fields = res.split(" ");
 			if(fields.length > 0){
 				switch(fields[0]){
+					case "removeUser":
+						processRemoveUserResult(fields);
+						break;
 					case "login":
 						processLoginResult(fields);
 						break;
