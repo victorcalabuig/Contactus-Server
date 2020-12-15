@@ -58,10 +58,20 @@ public class ServerInstance implements Runnable {
 		if(rs.next())
 			return -41;
 
-		String insUser = String.format(
-				"INSERT INTO User (username, password) VALUES ('%s', '%s')", username, pwd);
-		stmt.executeUpdate(insUser);
+		insertUser(username, pwd, stmt);
 		return 0;
+	}
+
+	private static void insertUser(String username, String pwd, Statement stmt) throws SQLException {
+		stmt.executeUpdate(String.format(
+				"INSERT INTO User (username, password) VALUES ('%s', '%s')", username, pwd));
+
+		//Now update Healthy table as well (insert user in healthy)
+		ResultSet newUserIdRS = stmt.executeQuery(String.format(
+				"SELECT userId FROM User WHERE username = '%s'", username));
+		newUserIdRS.next();
+		int userId = newUserIdRS.getInt(1);
+		stmt.executeUpdate(String.format("INSERT INTO Healthy VALUES (%d)", userId));
 	}
 
 	private static int removeUser (String username, String pwd, Statement stmt) throws SQLException{
@@ -397,6 +407,8 @@ public class ServerInstance implements Runnable {
 		try {
 			Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db");
 			Statement stmt = con.createStatement();
+
+			stmt.execute("PRAGMA foreign_keys = ON"); //enable foreign key behavior
 
 			//ServerSocket serverSocket = new ServerSocket(8000);
 			//System.out.println("Waiting for client conexions...");
