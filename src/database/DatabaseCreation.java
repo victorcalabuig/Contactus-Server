@@ -34,6 +34,7 @@ public class DatabaseCreation {
 
     static String suspectSQLCreate = "CREATE TABLE Suspect ("
        + "userId INTEGER PRIMARY KEY, "
+       + "suspectSince INT, "
        + "FOREIGN KEY (userId) REFERENCES User (userId) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     static String locationSQLCreate = "CREATE TABLE Location ("

@@ -21,7 +21,10 @@ static {
 	codes.put("-45", "userNotFound");
 	codes.put("-46", "userNotAuthenticated");
 
-	codes.put("-47", "userAlreadyInfected");
+	codes.put("-471", "userAlreadyInfected");
+	codes.put("-472", "userAlreadyHealthy");
+	codes.put("-473", "userAlreadySuspect");
+	codes.put("-473", "suspectStateNotAllowedFromInfected"); //No permitimos pasar de infected a suspect
 
 	codes.put("-47", "permissionDenied");
 

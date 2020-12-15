@@ -54,9 +54,9 @@ public class ServerInstance implements Runnable {
 	private static String traceRetrospectiveReach = "-2d";
 
 	//Definición de los estados, para el campo state de la tabla user
-	private static String healthyState = "healthy";
-	private static String suspectState = "suspect";
-
+	private static final String healthyState = "healthy";
+	private static final String suspectState = "suspect";
+	private static final String infectedState = "infected";
 
 	/**
 	 * Añade un usuario a la base de datos si 'username' está disponible
@@ -394,7 +394,6 @@ public class ServerInstance implements Runnable {
 		return timeFrame;
 	}
 
-
 	/**
 	 * Comprubea si el usuario ha iniciado sesión para poder ejecutar el comando
 	 * startPositions.
@@ -423,10 +422,9 @@ public class ServerInstance implements Runnable {
 		int userId = Integer.parseInt(fields[0]);
 		if(fields.length != 2) return -42;
 		if(!userLoggedIn(fields)) return -46; //not authenticated
-		if(isInfected(userId, stmt)) return -47; //user already infected
+		if(isInfected(userId, stmt)) return -471; //user already infected
 
-		infected(userId, stmt);
-		return 0;
+		return infected(userId, stmt);
 	}
 
 	/**
@@ -447,17 +445,12 @@ public class ServerInstance implements Runnable {
 		stmt.executeUpdate(String.format(
 				"INSERT INTO INFECTED VALUES (%d, %d, %d)", userId, infectionTime, defaultLastCheck));
 
-		//actualizar campo state de la tabla User
-		stmt.executeUpdate(String.format(
-				"UPDATE User SET state = 1 WHERE userId = %d", userId));
+		updateUserStateField(userId, infectedState, stmt); //actualizar campo state de la tabla User
 
 		//Actualizar historial (tabla StateHistory) con el cambio
-		stmt.executeUpdate(String.format(
-				"INSERT INTO StateHistory VALUES (%d, %d, '%s', '%s')",
-				userId, infectionTime, previousState, "infected"));
+		updateStateHistory(userId, infectionTime, previousState, infectedState, stmt);
 		return 0;
 	}
-
 
 	/**
 	 * Devuelve el instante actual en milisegundos transcurridos desde el epoch.
@@ -485,6 +478,132 @@ public class ServerInstance implements Runnable {
 				"DELETE FROM %s WHERE userId = %d", table, userId));
 		return deletedRows;
 	}
+
+	/**
+	 * Envuelve al metodo healthy principal, y realiza 3 comprobaciones: que el usuario
+	 * esté autenticado, que no esté healthy ya, y el número de argumentos.
+	 * @param fields Mensaje recibido del cliente.
+	 * @return 0 sí exito, código de error sino.
+	 */
+	private static int healthy(String[] fields, Statement stmt) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(fields.length != 2) return -42;
+		if(!userLoggedIn(fields)) return -46; //not authenticated
+		if(isHealthy(userId, stmt)) return -472; //user already healthy
+
+		return healthy(userId, stmt);
+	}
+
+	/**
+	 * Modifica el estado de un usuario a healthy. Incluye la lógica para gestionar
+	 * las diferentes tablas (healthy, infected y suspect).
+	 */
+	private static int healthy(int userId, Statement stmt) throws SQLException {
+		//quitar al usuario de las infected y suspect (si está)
+		int delInfected = deleteUserFromTable("Infected", userId, stmt);
+		int delSuspect = deleteUserFromTable("Suspect", userId, stmt);
+
+		//Averiguar el estado del usuario antes de infectarse
+		String previousState = delInfected > 0 ? infectedState : suspectState;
+
+		//Insertar en Healthy
+		stmt.executeUpdate(String.format(
+				"INSERT INTO Healthy VALUES (%d)", userId));
+
+		updateUserStateField(userId, healthyState, stmt); //actualizar campo state de la tabla User
+
+		//Actualizar historial (tabla StateHistory) con el cambio
+		long recoveryTime = getCurrentTime();
+		updateStateHistory(userId, recoveryTime, previousState, healthyState, stmt);
+		return 0;
+	}
+
+	/**
+	 * Actualiza el campo state de la tabla User al estado indicado en el parametro state.
+	 * Recordar que 0 = healthy; 1 = infected; null = suspect
+	 */
+	private static int updateUserStateField(int userId, String state, Statement stmt) throws SQLException {
+		String newState = "";
+		switch(state){
+			case healthyState -> newState = "0";
+			case suspectState -> newState = "null";
+			case infectedState -> newState = "1";
+		}
+		int updatedRowCount = stmt.executeUpdate(String.format(
+				"UPDATE User SET state = '%s' WHERE userId = %d", newState, userId));
+		return updatedRowCount;
+	}
+
+	/**
+	 * Inserta un nuevo registro en la tabla StateHistory (registra cambios de estado).
+	 * @param prevState Estado previo
+	 * @param curState Estado actual.
+	 */
+	private static int updateStateHistory(int userId, long time, String prevState,
+										  String curState, Statement stmt) throws SQLException {
+		int insertedRow = stmt.executeUpdate(String.format(
+				"INSERT INTO StateHistory VALUES (%d, %d, '%s', '%s')",
+				userId, time, prevState, curState));
+		return insertedRow;
+	}
+
+	/**
+	 * Comprueba si el estado de un usuario es healthy
+	 */
+	private static boolean isHealthy(int userId, Statement stmt) throws SQLException {
+		ResultSet healthyUserIdRS = stmt.executeQuery(String.format(
+				"SELECT userId FROM Healthy WHERE userId = %s", userId));
+		return healthyUserIdRS.next();
+	}
+
+	/**
+	 * Envuelve al metodo suspect principal, y realiza 4 comprobaciones: que el usuario
+	 * esté autenticado, que no sea suspect, que no sea infected (no se permite pasar de
+	 * infected a suspect) y el número de argumentos.
+	 * @param fields Mensaje recibido del cliente.
+	 * @return 0 sí exito, código de error sino.
+	 */
+	private static int suspect(String[] fields, Statement stmt) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(fields.length != 2) return -42;
+		if(!userLoggedIn(fields)) return -46; //not authenticated
+		if(isSuspect(userId, stmt)) return -473; //user already suspect
+		if(isInfected(userId, stmt)) return -474; //No permitimos pasar de infected a suspect
+
+		return suspect(userId, stmt);
+	}
+
+	/**
+	 * Modifica el estado de un usuario a healthy. Incluye la lógica para gestionar
+	 * las diferentes tablas (healthy, infected y suspect).
+	 */
+	private static int suspect(int userId, Statement stmt) throws SQLException {
+		//quitar al usuario de las tabla healthy
+		int delHealthy = deleteUserFromTable("Healthy", userId, stmt);
+
+		String previousState = healthyState; //solo se puede pasar a suspect desde healthy
+
+		//Insertar en Suspect
+		long suspectSince = getCurrentTime();
+		stmt.executeUpdate(String.format(
+				"INSERT INTO Suspect VALUES (%d, %d)", userId, suspectSince));
+
+		updateUserStateField(userId, suspectState, stmt); //actualizar campo state de la tabla User
+
+		//Actualizar historial (tabla StateHistory) con el cambio
+		updateStateHistory(userId, suspectSince, previousState, suspectState, stmt);
+		return 0;
+	}
+
+	/**
+	 * Comprueba si el estado de un usuario es healthy
+	 */
+	private static boolean isSuspect(int userId, Statement stmt) throws SQLException {
+		ResultSet suspectUserIdRS = stmt.executeQuery(String.format(
+				"SELECT userId FROM Suspect WHERE userId = %s", userId));
+		return suspectUserIdRS.next();
+	}
+
 
 
 	/**
@@ -565,6 +684,12 @@ public class ServerInstance implements Runnable {
 							break;
 						case "infected":
 							res = infected(fields, stmt);
+							break;
+						case "healthy":
+							res = healthy(fields, stmt);
+							break;
+						case "suspect":
+							res = suspect(fields, stmt);
 							break;
 						case "exit":
 							res = 0;
