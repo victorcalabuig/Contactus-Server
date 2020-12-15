@@ -442,10 +442,8 @@ public class ServerInstance implements Runnable {
 							res = addUser(fields, stmt);
 							break;
 						case "removeUser":
+							info1 = Integer.toString(getUserId(fields[2], stmt));
 							res = removeUser(fields, stmt);
-							if(res == 0){
-								info1 = Integer.toString(getUserId(fields[2], stmt));
-							}
 							break;
 						case "login":
 							res = login(fields, stmt);
