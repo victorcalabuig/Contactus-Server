@@ -21,6 +21,8 @@ import java.time.ZonedDateTime;
 
 import utils.Code;
 
+import javax.print.DocFlavor;
+
 
 /**
  * Las intancias de esta clase se ejecutan en threads secundarios que
@@ -36,11 +38,24 @@ public class ServerInstance implements Runnable {
 		this.clientSocket = clientSocket;
 	}
 
+	//¡¡IMPORTANTE!! No convirtais las variables staticas globales a variables locales,
+	// aunque os lo proponga el IntelliJ.
+
 	/**
 	 * Utilizado cuando el comando listPositions no suministra un parametro
 	 * de tiempo.
 	 */
 	private static String defaultTimeFrame = "-1y"; //ultimo año
+
+	/**
+	 * Cantidad de tiempo que vamos a saltar hacia atrás para rastrear los conctactos
+	 * cercanos de los infectados para detectar usuarios suspects/sospechosos.
+	 */
+	private static String traceRetrospectiveReach = "-2d";
+
+	//Definición de los estados, para el campo state de la tabla user
+	private static String healthyState = "healthy";
+	private static String suspectState = "suspect";
 
 
 	/**
@@ -58,15 +73,18 @@ public class ServerInstance implements Runnable {
 		if(rs.next())
 			return -41;
 
-		insertUser(username, pwd, stmt);
+		insertNewUser(username, pwd, stmt);
 		return 0;
 	}
 
-	private static void insertUser(String username, String pwd, Statement stmt) throws SQLException {
+	/**
+	 * Inserta un usuario nuevo en las tablas User y healthy.
+	 */
+	private static void insertNewUser(String username, String pwd, Statement stmt) throws SQLException {
 		stmt.executeUpdate(String.format(
 				"INSERT INTO User (username, password) VALUES ('%s', '%s')", username, pwd));
 
-		//Now update Healthy table as well (insert user in healthy)
+		//Now update Healthy table as well (need to first fetch the new user's id)
 		ResultSet newUserIdRS = stmt.executeQuery(String.format(
 				"SELECT userId FROM User WHERE username = '%s'", username));
 		newUserIdRS.next();
@@ -395,6 +413,79 @@ public class ServerInstance implements Runnable {
 		return Integer.parseInt(fields[0]) > 0;
 	}
 
+	/**
+	 * Envuelve al metodo infected principal, y realiza 3 comprobaciones: que el usuario
+	 * esté autenticado, que no esté infectado, y el número de argumentos.
+	 * @param fields Mensaje recibido del cliente.
+	 * @return 0 sí exito, código de error sino.
+	 */
+	private static int infected(String[] fields, Statement stmt) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(fields.length != 2) return -42;
+		if(!userLoggedIn(fields)) return -46; //not authenticated
+		if(isInfected(userId, stmt)) return -47; //user already infected
+
+		infected(userId, stmt);
+		return 0;
+	}
+
+	/**
+	 * Modifica el estado de un usuario a infected. Incluye la lógica para gestionar
+	 * las diferentes tablas (healthy, infected y suspect).
+	 */
+	private static int infected(int userId, Statement stmt) throws SQLException {
+		//quitar al usuario de las tablas healthy y suspect (si está)
+		int delHealthy = deleteUserFromTable("Healthy", userId, stmt);
+		int delSuspect = deleteUserFromTable("Suspect", userId, stmt);
+
+		//Averiguar el estado del usuario antes de infectarse
+		String previousState = delHealthy > 0 ? healthyState : suspectState;
+
+		//Insertar en Infected
+		long infectionTime = getCurrentTime();
+		long defaultLastCheck = getTimeFrame(traceRetrospectiveReach); //fecha actual - 2 días
+		stmt.executeUpdate(String.format(
+				"INSERT INTO INFECTED VALUES (%d, %d, %d)", userId, infectionTime, defaultLastCheck));
+
+		//actualizar campo state de la tabla User
+		stmt.executeUpdate(String.format(
+				"UPDATE User SET state = 1 WHERE userId = %d", userId));
+
+		//Actualizar historial (tabla StateHistory) con el cambio
+		stmt.executeUpdate(String.format(
+				"INSERT INTO StateHistory VALUES (%d, %d, '%s', '%s')",
+				userId, infectionTime, previousState, "infected"));
+		return 0;
+	}
+
+
+	/**
+	 * Devuelve el instante actual en milisegundos transcurridos desde el epoch.
+	 */
+	private static long getCurrentTime(){
+		Timestamp timestamp = new Timestamp(System.currentTimeMillis());
+		return timestamp.getTime();
+	}
+
+	/**
+	 * Checks if a given user is infected.
+	 */
+	private static boolean isInfected(int userId, Statement stmt) throws SQLException {
+		ResultSet infectedUserIdRS = stmt.executeQuery(String.format(
+				"SELECT userId FROM Infected WHERE userId = %s", userId));
+		return infectedUserIdRS.next();
+	}
+
+	/**
+	 * Elimina a un usuario de la tabla dada, si lo encuentra.
+	 * @return 1 si elimina un usuario, 0 sino.
+	 */
+	private static int deleteUserFromTable(String table, int userId, Statement stmt) throws SQLException{
+		int deletedRows = stmt.executeUpdate(String.format(
+				"DELETE FROM %s WHERE userId = %d", table, userId));
+		return deletedRows;
+	}
+
 
 	/**
 	 * Este metodo es de la interfaz Runnable. Envuelve el bloque que se ejecutara
@@ -471,6 +562,9 @@ public class ServerInstance implements Runnable {
 							break;
 						case "stopPositions":
 							res = stopPositions(fields);
+							break;
+						case "infected":
+							res = infected(fields, stmt);
 							break;
 						case "exit":
 							res = 0;
