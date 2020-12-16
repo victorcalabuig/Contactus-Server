@@ -16,8 +16,10 @@ public class DatabaseCreation {
         + "username TEXT UNIQUE NOT NULL, "
         + "email TEXT UNIQUE, "
         + "password TEXT NOT NULL, "
-        + "state INT DEFAULT 0)";  //0 = healthy; 1 = infected; null = suspect (improve some ops)
-    
+        + "state INT DEFAULT 0, "  //0 = healthy; 1 = infected; null = suspect (improve some ops)
+        + "lastLocation INTEGER UNIQUE, "
+        + "FOREIGN KEY (lastLocation) REFERENCES Location (locationId) ON UPDATE RESTRICT ON DELETE RESTRICT)";
+
     static String adminSQLCreate = "CREATE TABLE Admin ("
     	+ "userId INTEGER PRIMARY KEY, "
     	+ "FOREIGN KEY (userId) REFERENCES User (userId) ON UPDATE CASCADE ON DELETE CASCADE)";
@@ -38,11 +40,11 @@ public class DatabaseCreation {
        + "FOREIGN KEY (userId) REFERENCES User (userId) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     static String locationSQLCreate = "CREATE TABLE Location ("
+        + "locationId INTEGER PRIMARY KEY, "
     	+ "userId INTEGER, "
     	+ "time INT, "
     	+ "latitude REAL NOT NULL, "
     	+ "longitude REAL NOT NULL, "
-    	+ "PRIMARY KEY (userId, time), "
     	+ "FOREIGN KEY (userId) REFERENCES User (userId) ON DELETE CASCADE ON UPDATE CASCADE)";
 
     static String stateHistorySQLCreate = "CREATE TABLE StateHistory ("

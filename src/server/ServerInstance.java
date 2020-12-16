@@ -174,14 +174,37 @@ public class ServerInstance implements Runnable {
 		Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 		long time = timestamp.getTime();
 		String updatePos = String.format(
-				"INSERT INTO Location VALUES ('%d', '%d', '%f', '%f')",
+				"INSERT INTO Location (userId, time, latitude, longitude) VALUES ('%d', '%d', '%f', '%f')",
 				userId, time, latitude, longitude);
 		try{
 			stmt.executeUpdate(updatePos);
 		}catch (Exception e){
 			System.out.println("patata");
 		}
+
+		//Actualizar campo lastLocation de la tabla User con la nueva posición
+		int locationId = getLocationId(userId, time, stmt);
+		updateUserLastPosition(userId, locationId, stmt);
 		return 0;
+	}
+
+	/**
+	 * Devuelve la clave primaria locationId de una location dados su userId y el instante time.
+	 */
+	private static int getLocationId(int userId, long time, Statement stmt) throws SQLException {
+		ResultSet locationIdRS = stmt.executeQuery(String.format(
+				"SELECT locationId FROM Location WHERE userId = %d AND time = %d", userId, time));
+		locationIdRS.next();
+		return locationIdRS.getInt(1);
+	}
+
+	/**
+	 * Actualiza la última posición del usuario dado (el campo lastLocation de la tabla User).
+	 */
+	private static int updateUserLastPosition(int userId, int locationId, Statement stmt) throws SQLException {
+		int rowUpdated = stmt.executeUpdate(String.format(
+				"UPDATE User SET lastLocation = %d WHERE userId = %d", locationId, userId));
+		return rowUpdated;
 	}
 
 	/**
