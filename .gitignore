@@ -1,11 +1,8 @@
-# Database
-Contactus.db
-
-# IntelliJ
+classes/
 /contactus.iml
 /.idea/
-out/
-
-# Victor
-buildComands.txt
-classes/
+/bin/
+.classpath
+.project
+/out/
+/build/

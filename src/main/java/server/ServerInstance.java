@@ -6,8 +6,7 @@ import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import static java.lang.Thread.sleep;
 import java.net.ServerSocket;
-import java.net.Socket;
-
+import java.net.Socket; 
 import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.SQLException;
