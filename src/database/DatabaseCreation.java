@@ -16,7 +16,7 @@ public class DatabaseCreation {
         + "username TEXT UNIQUE NOT NULL, "
         + "email TEXT UNIQUE, "
         + "password TEXT NOT NULL, "
-        + "state BOOLEAN DEFAULT 0)";  //0 = healthy; 1 = infected; null = suspect (improve some ops)
+        + "state INT DEFAULT 0)";  //0 = healthy; 1 = infected; null = suspect (improve some ops)
     
     static String adminSQLCreate = "CREATE TABLE Admin ("
     	+ "userId INTEGER PRIMARY KEY, "

@@ -530,7 +530,7 @@ public class ServerInstance implements Runnable {
 			case infectedState -> newState = "1";
 		}
 		int updatedRowCount = stmt.executeUpdate(String.format(
-				"UPDATE User SET state = '%s' WHERE userId = %d", newState, userId));
+				"UPDATE User SET state = %s WHERE userId = %d", newState, userId));
 		return updatedRowCount;
 	}
 
