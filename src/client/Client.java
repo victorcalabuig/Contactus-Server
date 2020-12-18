@@ -5,7 +5,9 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.net.Socket;
+
 import java.util.Scanner;
+import java.util.Arrays;
 
 public class Client {
 
@@ -147,6 +149,14 @@ public class Client {
 	private static void processStopPositionsResult(String[] fields){
 		if(Integer.parseInt(fields[1]) == 0) stopPositions();
 	}
+
+	private static void processListAlarmsResult(String[] fields){
+		if(commandSuccess(fields) && fields.length > 2){
+			String[] alarmsArr = Arrays.copyOfRange(fields, 2, fields.length);
+			System.out.println(String.join(" ", alarmsArr));
+		}
+	}
+
 	public static void main(String[] args) throws IOException {
 		Scanner keyboard = new Scanner(System.in);
 		Socket clientSocket = new Socket("localhost", 8000);
@@ -199,6 +209,9 @@ public class Client {
 						break;
 					case "stopPositions":
 						processStopPositionsResult(fields);
+						break;
+					case "listAlarms":
+						processListAlarmsResult(fields);
 						break;
 					case "exit":
 						execute = false;
