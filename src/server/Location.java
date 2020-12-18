@@ -60,6 +60,14 @@ public class Location implements Comparable<Location> {
     }
 
     /**
+     * Construye una Location solo con las coordenadas.
+     */
+    public Location(double latitude, double longitude){
+        this.latitude = latitude;
+        this.longitude = longitude;
+    }
+
+    /**
      * Comprueba si 2 Locations se encuentran en el mismo sitio en el mismo momento.
      * @return True si las 2 Locations han coincidido, false sino.
      */
