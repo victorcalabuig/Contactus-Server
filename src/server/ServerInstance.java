@@ -675,6 +675,8 @@ public class ServerInstance implements Runnable {
 
 		List<Alarm> healthyUserAlarmsList = new ArrayList();
 
+		//Comparamos la posición del healthyUser con todas las pocisiones peligrosas
+		//Si el método isNear devuelve true, creamos una nueva alarma y la añadimos a la lista.
 		while(!dangerLocations.isEmpty()){
 			Location currentDangerLocation = dangerLocations.get(0);
 			if(healthyUserLocation.isNear(currentDangerLocation)){
@@ -682,8 +684,13 @@ public class ServerInstance implements Runnable {
 			}
 			dangerLocations.remove(0);
 		}
-		if(!healthyUserAlarmsList.isEmpty())
-			alarmsSB.append(healthyUserAlarmsList);
+
+		//Si se ha detectado alguna alarma, añadirla al StringBuilder alarms SB.
+		if(!healthyUserAlarmsList.isEmpty()) {
+			int alarmCount = healthyUserAlarmsList.size();
+			String plural = ((alarmCount == 1) ? "" : "s").trim(); //Si hay más de una alarma, añadimos una s a "Alarm"
+			alarmsSB.append(String.format("%d Alarm%s detected: %s", alarmCount, plural, healthyUserAlarmsList));
+		}
 		return 0;
 	}
 

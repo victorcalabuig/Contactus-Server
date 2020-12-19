@@ -8,8 +8,11 @@ import java.net.Socket;
 
 import java.util.Scanner;
 import java.util.Arrays;
+import java.util.concurrent.Semaphore;
 
 public class Client {
+
+	public static Semaphore protectAutomaticVariables = new Semaphore(1);
 
 	/**
 	 * Guarda el Id del usuario actual, y es 0 hasta que se inicie sesión con el
@@ -29,7 +32,44 @@ public class Client {
 	 */
 	static private Thread posSenderThread;
 
+	/**
+	 * Flag utilizado para determinar si es el usuario el que debe introducir un
+	 * comando o por el contrario el cliente va a envíar un comando automáticamente.
+	 */
+	static public boolean inputFromUser = true;
+
+	/**
+	 * Almacena el siguiente comando que se va a envíar automáticamente.
+	 */
+	static public String nextAutomaticCommand = "";
+
+	static private String listAlarmsCommand = "listAlarms";
+
 	static private boolean debug = false;
+
+	/**
+	 * Envía de forma autónoma (sin el input del usuario) un comando listAlarms al
+	 * servidor.
+	 */
+	public static void sendAutomaticListAlarms(){
+		try {
+			//Bloquear el acceso a las variables compartidas entre threads con el semáforo
+			protectAutomaticVariables.acquire();
+				inputFromUser = false;
+				nextAutomaticCommand = listAlarmsCommand;
+			protectAutomaticVariables.release();
+		} catch (InterruptedException e){
+			e.printStackTrace();
+		}
+
+	}
+
+	/**
+	 * Cuando se añade una posición se envía automáticamente un listAlarms.
+	 */
+	private static void processAddPositionResult(String[] fields){
+		sendAutomaticListAlarms();
+	}
 
 	private static void processRemoveUserResult(String[] fields){
 		if(commandSuccess(fields)){
@@ -59,6 +99,7 @@ public class Client {
 		if(Integer.parseInt(fields[1]) == 0 && fields.length == 4){
 			currentUserId = Integer.valueOf(fields[2]);
 			currentUsername = fields[3];
+			sendAutomaticListAlarms();
 		}
 	}
 
@@ -150,11 +191,26 @@ public class Client {
 		if(Integer.parseInt(fields[1]) == 0) stopPositions();
 	}
 
+	/**
+	 * Si recibe alguna alarma, la imprime. Luego devuelve el control al usuraio (esto
+	 * es porque listAlarms puede ejecutarlo automáticamente el cliente como respuesta
+	 * a algunos comandos (por ejemplo cuando se ejecuta un login, el cliente acto
+	 * seguido ejecuta un listAlarms)).
+	 */
 	private static void processListAlarmsResult(String[] fields){
 		if(commandSuccess(fields) && fields.length > 2){
 			String[] alarmsArr = Arrays.copyOfRange(fields, 2, fields.length);
 			System.out.println(String.join(" ", alarmsArr));
 		}
+		returnControlToUser();
+	}
+
+	/**
+	 * Le devulve el control del cliente al usuario.
+	 */
+	private static void returnControlToUser(){
+		inputFromUser = true;
+		nextAutomaticCommand = "";
 	}
 
 	public static void main(String[] args) throws IOException {
@@ -167,17 +223,33 @@ public class Client {
 
 		boolean execute = true;
 		while(execute){
-			System.out.print(currentUsername + "> ");
-			String keyboardInput = keyboard.nextLine();
-			//Se añade como cabecera el Id del usuario actual
-			String msgToServer = currentUserId + " " + keyboardInput;
 
+			String command = "";
+
+			//Comprobamos si le toca escribir al usuario o el cliente va a mandar un mensaje
+			//automáticamente. Para ello accedemos a la variable compartida inputFromUse,
+			//por lo que hay que proteger esta zona con un semáforo.
+			try {
+				protectAutomaticVariables.acquire();
+					if(inputFromUser) {
+						System.out.print(currentUsername + "> ");
+						command = keyboard.nextLine();
+					}
+					else{
+						command = nextAutomaticCommand;
+					}
+				protectAutomaticVariables.release();
+			} catch (InterruptedException e){
+				e.printStackTrace();
+			}
+
+
+			//Se añade como cabecera el Id del usuario actual
+			String msgToServer = currentUserId + " " + command;
 			//Envio de mensaje al servidor
 			out.println(msgToServer); //
 			out.flush();
 
-			//Mecanismo temporal para cerrar la conexión
-			if(keyboardInput.equals("close")) break;
 
 			//Resultado que nos envía el servidor
 			String res = in.readLine();
@@ -197,6 +269,9 @@ public class Client {
 						break;
 					case "logout":
 						processLogoutResult(fields);
+						break;
+					case "addPosition":
+						processAddPositionResult(fields);
 						break;
 					case "listUsers":
 						processListUsersResult(fields);

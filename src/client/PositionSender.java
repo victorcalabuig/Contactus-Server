@@ -3,21 +3,27 @@ package client;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import java.io.BufferedReader;
-import java.net.Socket;
 import java.io.IOException;
+
+import java.net.Socket;
+
 import java.util.Random;
 
 import utils.ImprovedNoise;
+
 /**
 * Esta clase implementa la interfaz runnable y se ejecuta en un Thread 
 * secundario cuando desde el cliente se ejecuta el comando startPositions.
 */
-public class PositionSender implements Runnable {
+public class PositionSender extends Client implements Runnable {
 
 private static int userId;
 
-//valores prueba, en la realidad debería obtenerse de alguna forma.
+private static int listAlarmsCounter = 0;
 
+private static int listAlarmsInterval = 5;
+
+//valores prueba, en la realidad debería obtenerse de alguna forma.
 // Podríamos usar Perlin noise para que los valores de la posición estén cercanos entre si
 private static double latitude = 0;
 private static double longitude = 0;
@@ -33,10 +39,12 @@ public void run(){
 		PrintWriter out = new PrintWriter(clientSocket.getOutputStream());
 		BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
+		int listAlarmsCounter = 0;
 		while(true){
 			try{
 				calculatePosition(0.1);
 				sendPosition(out);
+				//tryListAlarms();
 				Thread.sleep(1000);
 			} catch(InterruptedException e){
 				//System.out.println("The thread of the user " + userId + "has been interrupted");
@@ -105,6 +113,14 @@ private static void sendPosition(PrintWriter out){
 	out.println(msgToServer);
 	out.flush();
 	//System.out.println("Message sent by a thread!!!!");
+}
+
+private static void tryListAlarms() throws InterruptedException {
+	listAlarmsCounter++;
+	if(listAlarmsCounter == listAlarmsInterval){
+		sendAutomaticListAlarms();
+		listAlarmsCounter = 0;
+	}
 }
 
 }

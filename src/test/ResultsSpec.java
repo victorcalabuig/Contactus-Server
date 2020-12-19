@@ -45,7 +45,7 @@ public class ResultsSpec {
         serverResponse.append("listAlarms 0");
         if(distanceBetweenPosition1And2 < Location.MIN_DISTANCE){
             Alarm alarm = new Alarm(3, distanceBetweenPosition1And2);
-            serverResponse.append(String.format(" [%s]", alarm));
+            serverResponse.append(String.format(" 1 Alarm detected: [%s]", alarm));
         }
         return serverResponse.toString();
     }
