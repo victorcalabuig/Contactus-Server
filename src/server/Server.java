@@ -32,12 +32,13 @@ public class Server {
 			SQLException {
 
 		ServerSocket serverSocket = new ServerSocket(port);
+		Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db");
 
 		boolean listen = true;
 		while(listen){
-			System.out.println("Waiting for client conexions...");
+			System.out.println("Waiting for client conexions from main server...");
 			Socket clientSocket = serverSocket.accept();
-			ServerInstance serverInstance = new ServerInstance(clientSocket);
+			ServerInstance serverInstance = new ServerInstance(clientSocket, con);
 			(new Thread(serverInstance)).start(); //Nuevo thread
 		}
 		serverSocket.close();

@@ -16,7 +16,7 @@ import utils.ImprovedNoise;
 * Esta clase implementa la interfaz runnable y se ejecuta en un Thread 
 * secundario cuando desde el cliente se ejecuta el comando startPositions.
 */
-public class PositionSender extends Client implements Runnable {
+public class PositionSender implements Runnable {
 
 	private static int userId;
 
@@ -36,12 +36,12 @@ public class PositionSender extends Client implements Runnable {
 			PrintWriter out = new PrintWriter(clientSocket.getOutputStream());
 			BufferedReader in = new BufferedReader(new InputStreamReader(clientSocket.getInputStream()));
 
-			int commandCounter = 0;
 			while(true){
 				try{
-					//calculatePosition(0.1);
+					calculatePosition(0.1);
 					sendPosition(out);
 					Thread.sleep(1000);
+					in.readLine();
 				} catch(InterruptedException e){
 					//System.out.println("The thread of the user " + userId + "has been interrupted");
 					return;
@@ -109,7 +109,6 @@ public class PositionSender extends Client implements Runnable {
 		String msgToServer = userId + " addPosition " + latitude + " " + longitude;
 		out.println(msgToServer);
 		out.flush();
-		System.out.println("Message sent by a thread!!!!");
 	}
 
 }

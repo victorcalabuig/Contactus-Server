@@ -36,9 +36,12 @@ public class ServerInstance implements Runnable {
 
 	private static Socket clientSocket;
 
+	private static Connection con;
 
-	public ServerInstance(Socket clientSocket){
+
+	public ServerInstance(Socket clientSocket, Connection con){
 		this.clientSocket = clientSocket;
+		this.con = con;
 	}
 
 	//¡¡IMPORTANTE!! No convirtais las variables staticas globales a variables locales,
@@ -182,6 +185,7 @@ public class ServerInstance implements Runnable {
 		try{
 			stmt.executeUpdate(updatePos);
 		}catch (Exception e){
+			e.printStackTrace();
 			return -4;
 		}
 
@@ -766,7 +770,6 @@ public class ServerInstance implements Runnable {
 	 */
 	public void run() {
 		try {
-			Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db");
 			Statement stmt = con.createStatement();
 
 			stmt.execute("PRAGMA foreign_keys = ON"); //enable foreign key behavior
@@ -865,7 +868,7 @@ public class ServerInstance implements Runnable {
 				msgToSend = msgToSend.replaceAll("\\s{2,}", " "); //eliminamos dobles/triples espacios
 
 				//Envio del mensaje:
-				out.println(msgToSend);;
+				out.println(msgToSend);
 			}
 
 			con.close();
