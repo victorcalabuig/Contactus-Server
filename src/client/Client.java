@@ -12,8 +12,6 @@ import java.util.concurrent.Semaphore;
 
 public class Client {
 
-	public static Semaphore protectAutomaticVariables = new Semaphore(1);
-
 	/**
 	 * Guarda el Id del usuario actual, y es 0 hasta que se inicie sesión con el
 	 * comando Login. Sirve para indicarle al servidor qué usuario hay detrás del
@@ -47,21 +45,14 @@ public class Client {
 
 	static private boolean debug = false;
 
+
 	/**
 	 * Envía de forma autónoma (sin el input del usuario) un comando listAlarms al
 	 * servidor.
 	 */
 	public static void sendAutomaticListAlarms(){
-		try {
-			//Bloquear el acceso a las variables compartidas entre threads con el semáforo
-			protectAutomaticVariables.acquire();
-				inputFromUser = false;
-				nextAutomaticCommand = listAlarmsCommand;
-			protectAutomaticVariables.release();
-		} catch (InterruptedException e){
-			e.printStackTrace();
-		}
-
+		inputFromUser = false;
+		nextAutomaticCommand = listAlarmsCommand;
 	}
 
 	/**
@@ -84,7 +75,7 @@ public class Client {
 	 * @return True si la segunda palabra del mensaje (fields[1]) es 0, que indica
 	 * que el comando se ha ejecutado con éxtio.
 	 */
-	private static boolean commandSuccess(String[] fields){
+	public static boolean commandSuccess(String[] fields){
 		return Integer.parseInt(fields[1]) == 0;
 	}
 
@@ -197,7 +188,7 @@ public class Client {
 	 * a algunos comandos (por ejemplo cuando se ejecuta un login, el cliente acto
 	 * seguido ejecuta un listAlarms)).
 	 */
-	private static void processListAlarmsResult(String[] fields){
+	public static void processListAlarmsResult(String[] fields){
 		if(commandSuccess(fields) && fields.length > 2){
 			String[] alarmsArr = Arrays.copyOfRange(fields, 2, fields.length);
 			System.out.println(String.join(" ", alarmsArr));
@@ -208,7 +199,7 @@ public class Client {
 	/**
 	 * Le devulve el control del cliente al usuario.
 	 */
-	private static void returnControlToUser(){
+	private static void returnControlToUser() {
 		inputFromUser = true;
 		nextAutomaticCommand = "";
 	}
@@ -229,20 +220,13 @@ public class Client {
 			//Comprobamos si le toca escribir al usuario o el cliente va a mandar un mensaje
 			//automáticamente. Para ello accedemos a la variable compartida inputFromUse,
 			//por lo que hay que proteger esta zona con un semáforo.
-			try {
-				protectAutomaticVariables.acquire();
-					if(inputFromUser) {
-						System.out.print(currentUsername + "> ");
-						command = keyboard.nextLine();
-					}
-					else{
-						command = nextAutomaticCommand;
-					}
-				protectAutomaticVariables.release();
-			} catch (InterruptedException e){
-				e.printStackTrace();
+			if(inputFromUser) {
+				System.out.print(currentUsername + "> ");
+				command = keyboard.nextLine();
 			}
-
+			else{
+				command = nextAutomaticCommand;
+			}
 
 			//Se añade como cabecera el Id del usuario actual
 			String msgToServer = currentUserId + " " + command;
