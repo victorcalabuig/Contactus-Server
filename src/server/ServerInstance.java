@@ -433,7 +433,23 @@ public class ServerInstance implements Runnable {
 		return -46;
 	}
 
+	/**
+	 * Comprueba que el usuario ha iniciado sesión y no está infectado para dejarle ejecutar
+	 * startAlarms.
+	 */
+	private static int startAlarms(String[] fields, Statement stmt) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(!userLoggedIn(fields)) return -46;
+		if(isInfected(userId, stmt)) return -482;
+		return 0;
+	}
+
 	private static int stopPositions(String[] fields){
+		if(userLoggedIn(fields)) return 0;
+		return -46;
+	}
+
+	private static int stopAlarms(String[] fields){
 		if(userLoggedIn(fields)) return 0;
 		return -46;
 	}
@@ -837,6 +853,12 @@ public class ServerInstance implements Runnable {
 							break;
 						case "stopPositions":
 							res = stopPositions(fields);
+							break;
+						case "startAlarms":
+							res = startAlarms(fields, stmt);
+							break;
+						case "stopAlarms":
+							res = stopAlarms(fields);
 							break;
 						case "infected":
 							res = infected(fields, stmt);

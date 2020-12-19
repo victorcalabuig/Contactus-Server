@@ -40,8 +40,8 @@ public class PositionSender implements Runnable {
 				try{
 					calculatePosition(0.1);
 					sendPosition(out);
-					Thread.sleep(1000);
 					in.readLine();
+					Thread.sleep(1000);
 				} catch(InterruptedException e){
 					//System.out.println("The thread of the user " + userId + "has been interrupted");
 					return;

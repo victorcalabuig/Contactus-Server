@@ -31,6 +31,11 @@ public class Client {
 	static private Thread posSenderThread;
 
 	/**
+	 * Thread utilizado para enviar ejecutar listAlarms en segundo plano.
+	 */
+	static private Thread alarmSenderThread;
+
+	/**
 	 * Flag utilizado para determinar si es el usuario el que debe introducir un
 	 * comando o por el contrario el cliente va a envíar un comando automáticamente.
 	 */
@@ -166,6 +171,19 @@ public class Client {
 	private static void processStartPositionsResult(String[] fields){
 		if(Integer.parseInt(fields[1]) == 0) startPositions();
 	}
+
+	private static void processStartAlarmsResult(String[] fields){
+		if(commandSuccess(fields)) startAlarms();
+	}
+
+	private static void startAlarms(){
+		AlarmSender as = new AlarmSender(currentUserId);
+		alarmSenderThread = new Thread(as);
+		alarmSenderThread.setDaemon(true);
+		alarmSenderThread.start();
+	}
+
+
 	/**
 	 * Manda un interrupt al thread posSenderThread si este este activo.
 	 */
@@ -180,6 +198,16 @@ public class Client {
 	 */
 	private static void processStopPositionsResult(String[] fields){
 		if(Integer.parseInt(fields[1]) == 0) stopPositions();
+	}
+
+	private static void processStopAlarmsResult(String[] fields){
+		if(commandSuccess(fields)) stopAlarms();
+	}
+
+	private static void stopAlarms(){
+		if(alarmSenderThread != null && alarmSenderThread.isAlive()){
+			alarmSenderThread.interrupt();
+		}
 	}
 
 	/**
@@ -268,6 +296,12 @@ public class Client {
 						break;
 					case "stopPositions":
 						processStopPositionsResult(fields);
+						break;
+					case "startAlarms":
+						processStartAlarmsResult(fields);
+						break;
+					case "stopAlarms":
+						processStopAlarmsResult(fields);
 						break;
 					case "listAlarms":
 						processListAlarmsResult(fields);
