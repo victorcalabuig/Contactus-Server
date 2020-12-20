@@ -72,9 +72,9 @@ public class Location implements Comparable<Location> {
      * @return True si las 2 Locations han coincidido, false sino.
      */
     public boolean isNear(Location dangerLocation) {
+        if(calculateTimeDiff(this, dangerLocation) > MAX_TIME_DIFF) return false;
         this.distanceToDangerLocation = calculateDistance(this, dangerLocation);
         if(this.distanceToDangerLocation > MIN_DISTANCE) return false;
-        if(calculateTimeDiff(this, dangerLocation) > MAX_TIME_DIFF) return false;
         return true;
     }
 

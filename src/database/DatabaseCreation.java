@@ -31,12 +31,15 @@ public class DatabaseCreation {
     static String infectedSQLCreate = "CREATE TABLE Infected ("
         + "userId INTEGER PRIMARY KEY, "
         + "infectedSince INT ,"
-        + "lastCloseContactsCheck REAL ,"
+        + "lastCloseContactsCheck INT ,"
         + "FOREIGN KEY (userId) REFERENCES User (userId) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     static String suspectSQLCreate = "CREATE TABLE Suspect ("
        + "userId INTEGER PRIMARY KEY, "
        + "suspectSince INT, "
+       + "lastCloseContactsCheck INT ,"
+       + "infectedBy INTEGER, "
+       + "contactDuration INT, "
        + "FOREIGN KEY (userId) REFERENCES User (userId) ON UPDATE CASCADE ON DELETE CASCADE)";
 
     static String locationSQLCreate = "CREATE TABLE Location ("
