@@ -81,6 +81,28 @@ public class ServerInstance implements Runnable {
 		return 0;
 	}
 
+	public static int checkCloseContacts(String[] fields, Statement stmt) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(!isAdmin(userId, stmt)) return -47;
+
+		checkCloseContacts(stmt);
+		return 0;
+	}
+
+	public static void checkCloseContacts(Statement stmt) throws SQLException {
+		checkCloseContactsOfType("Infected", true, stmt);
+		checkCloseContactsOfType("Suspect", false, stmt);
+	}
+
+	public static void checkCloseContactsOfType(String table, boolean infected, Statement stmt)
+		throws SQLException
+	{
+		List<Integer> typeUserIds = getTypeUserIds(table, stmt);
+		for(int userId : typeUserIds){
+			checkCloseContacts(userId, infected, stmt);
+		}
+	}
+
 	public static void checkCloseContacts(int DangerUserId, boolean infected, Statement stmt)
 			throws SQLException
 	{
@@ -90,8 +112,12 @@ public class ServerInstance implements Runnable {
 		//Obtenemos todas las posiciones sin rastrear del usuario peligroso
 		List<Location> dangerUserUncheckedLocations = getUserLocationsInRange(DangerUserId, timeFrame, stmt);
 
-		//Para cada usuario healthy
-		List<Integer> healthyUserIdsList = getHealthyUserIds(stmt);
+		//juntamos ids de suspect y healthy en la lista healthyUsersIdsList
+		List<Integer> healthyUserIdsList = new ArrayList();
+		healthyUserIdsList.addAll(getTypeUserIds("Healthy", stmt));
+		healthyUserIdsList.addAll(getTypeUserIds("Suspect", stmt));
+
+		//Para cada usuario healthy o suspect...
 		while(!healthyUserIdsList.isEmpty()){
 			int currHealthyUser = healthyUserIdsList.get(0);
 
@@ -205,6 +231,20 @@ public class ServerInstance implements Runnable {
 			healhtyUserIds.add(healthyUserIdsRS.getInt(1));
 		}
 		return healhtyUserIds;
+	}
+
+	/**
+	 * Devuelve lista con ids de usuarios de un tipo concreto (healthy, suspect, infected...)
+	 * @param table Tabla del tipo de usuario (Healthy, Suspect o Infected)
+	 */
+	public static List<Integer> getTypeUserIds(String table, Statement stmt) throws SQLException {
+		List<Integer> typeUserIds = new ArrayList();
+		ResultSet typeUserIdsRS = stmt.executeQuery(String.format(
+				"SELECT userId FROM %s", table));
+		while(typeUserIdsRS.next()){
+			typeUserIds.add(typeUserIdsRS.getInt(1));
+		}
+		return typeUserIds;
 	}
 
 
@@ -437,13 +477,70 @@ public class ServerInstance implements Runnable {
 	 * Consulta y devuelve los usuarios del sistema
 	 * @return String con los usernames separados por un espacio en blanco.
 	 */
-	private static String getUsers(Statement stmt) throws SQLException {
+	private static String getUserss(Statement stmt) throws SQLException {
 		ResultSet usersRS = stmt.executeQuery("SELECT username FROM User");
 		String users = "";
 		while(usersRS.next()){
 			users += usersRS.getString(1) + " ";
 		}
 		return users;
+	}
+
+	private static String getUsers(Statement stmt) throws SQLException{
+		//Obtener listas de los tres tipos de usuarios
+		List<User> healthies = getHealthyUsers(stmt);
+		List<User> infecteds = getInfectedUsers(stmt);
+		List<User> suspects = getSuspectUsers(stmt);
+
+		//Añadir usuarios a StringBuilder.
+		StringBuilder sb = new StringBuilder();
+		appendUserList(sb, healthies);
+		appendUserList(sb, infecteds);
+		appendUserList(sb, suspects);
+
+		return sb.toString();
+	}
+
+	private static void appendUserList(StringBuilder sb, List<User> users){
+		sb.append("f"); //para evitar null Pointer si no hay usuarios de algún tipo.
+		for(User user : users){
+			sb.append(user + "//");
+		}
+		sb.append("|");
+	}
+
+	private static List<User> getSuspectUsers(Statement stmt) throws SQLException {
+		ResultSet suspectsRS = stmt.executeQuery(
+				"SELECT S.userId, Uusr.username, suspectSince, Uinf.username, contactDuration " +
+					"FROM Suspect S " +
+					"INNER JOIN User Uusr USING(userId) " +
+					"INNER JOIN User Uinf ON S.infectedBy = Uinf.userId");
+		List<User> suspects = new ArrayList();
+		while(suspectsRS.next()){
+			suspects.add(new SuspectUser(suspectsRS));
+		}
+		return suspects;
+	}
+
+	private static List<User> getInfectedUsers(Statement stmt) throws SQLException {
+		ResultSet infectedsRS = stmt.executeQuery(
+				"SELECT I.userId, username, infectedSince " +
+					"FROM User INNER JOIN Infected I USING(userId)");
+		List<User> infecteds = new ArrayList();
+		while(infectedsRS.next()){
+			infecteds.add(new InfectedUser(infectedsRS));
+		}
+		return infecteds;
+	}
+
+	private static List<User> getHealthyUsers(Statement stmt) throws SQLException {
+		ResultSet healthiesRS = stmt.executeQuery(
+				"SELECT H.userId, username FROM User INNER JOIN Healthy H USING(userId)");
+		List<User> healthies = new ArrayList<>();
+		while(healthiesRS.next()){
+			healthies.add(new HealthyUser(healthiesRS));
+		}
+		return healthies;
 	}
 
 
@@ -835,18 +932,27 @@ public class ServerInstance implements Runnable {
 
 		String previousState = healthyState; //solo se puede pasar a suspect desde healthy
 
-		//Insertar en Suspect
-		long suspectSince = getCurrentTime();
-		long defaultLastCheck = getTimeFrame(traceRetrospectiveReach); //fecha actual - 2 días
-		stmt.executeUpdate(String.format(
-				"INSERT INTO Suspect (userId, suspectSince, lastCloseContactsCheck, infectedBy, contactDuration) " +
-				"VALUES (%d, %d, %d, %d, %d)",
-				userId, suspectSince, defaultLastCheck, dangerUserId, contactDuration));
+		//Si yá es suspect, unicamente hay que actualizar contact duration y lastCloseContactCheck
+		if(isSuspect(userId, stmt)){
+			stmt.executeUpdate(String.format(
+					"UPDATE Suspect SET lastCloseContactsCheck = %d, contactDuration = %d WHERE userId = %d",
+					getCurrentTime(), contactDuration, userId));
+		}
+		else {
+			//Sino, Insertar en Suspect
+			long suspectSince = getCurrentTime();
+			long defaultLastCheck = getTimeFrame(traceRetrospectiveReach); //fecha actual - 2 días
+			stmt.executeUpdate(String.format(
+					"INSERT INTO Suspect (userId, suspectSince, lastCloseContactsCheck, infectedBy, contactDuration) " +
+							"VALUES (%d, %d, %d, %d, %d)",
+					userId, suspectSince, defaultLastCheck, dangerUserId, contactDuration));
 
-		updateUserStateField(userId, suspectState, stmt); //actualizar campo state de la tabla User
+			updateUserStateField(userId, suspectState, stmt); //actualizar campo state de la tabla User
 
-		//Actualizar historial (tabla StateHistory) con el cambio
-		updateStateHistory(userId, suspectSince, previousState, suspectState, stmt);
+			//Actualizar historial (tabla StateHistory) con el cambio
+			updateStateHistory(userId, suspectSince, previousState, suspectState, stmt);
+		}
+
 		return 0;
 	}
 
@@ -1077,6 +1183,9 @@ public class ServerInstance implements Runnable {
 						//	break;
 						case "listAlarms":
 							res = listAlarms(fields, stmt, info3);
+							break;
+						case "closeContacts":
+							res = checkCloseContacts(fields, stmt);
 							break;
 						case "exit":
 							res = 0;

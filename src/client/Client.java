@@ -1,5 +1,7 @@
 package client;
 
+import server.User;
+
 import java.io.BufferedReader;
 import java.io.IOException;
 import java.io.InputStreamReader;
@@ -118,13 +120,87 @@ public class Client {
 	 * por pantalla los usuarios contenidos en el mensaje del servidor.
 	 * @param fields Mensaje del servidor.
 	 */
-	private static void processListUsersResult(String[] fields){
+	private static void processListUsersResultt(String[] fields){
 		if(Integer.parseInt(fields[1]) == 0){
 			for(int i = 2; i < fields.length; i++)
 				System.out.print(fields[i] + " ");
 			System.out.println();
 		}
 	}
+
+	private static void processListUsersResult(String[] fields){
+		if(commandSuccess(fields) && fields.length > 2){
+			String[] usersPart = Arrays.copyOfRange(fields, 2, fields.length);
+			String[] userTypes = String.join(" ", usersPart).split("\\|");
+
+			//healthies
+			String[] healthies = userTypes[0].split("//");
+			if(healthies[0].length() != 1){
+				System.out.println();
+				healthies[0] = healthies[0].substring(1); //remove first char (flag)
+				printHeader("HEALTHY USERS");
+				System.out.printf("%-4s%-2s%-10s\n", "id", "|", "username");
+				System.out.println("---------------------------------------------------------------------------------");
+				for(String user : healthies){
+					printHealthyUser(user);
+				}
+				System.out.println();
+			}
+
+			//infecteds
+			String[] infecteds = userTypes[1].split("//");
+			if(infecteds[0].length() != 1){
+				System.out.println();
+				infecteds[0] = infecteds[0].substring(1); //remove first char (flag)
+				printHeader("INFECTED USERS");
+				System.out.printf("%-4s%-2s%-10s%-2s%-24s\n", "id", "|", "username", "|", "infectedSince");
+				System.out.println("---------------------------------------------------------------------------------");
+				for(String user : infecteds){
+					printInfectedUser(user);
+				}
+				System.out.println();
+			}
+
+			//supsects
+			String[] suspects = userTypes[2].split("//");
+			if(suspects[0].length() != 1){
+				System.out.println();
+				suspects[0] = suspects[0].substring(1); //remove first char (flag)
+				printHeader("SUSPECT USERS");
+				System.out.printf("%-4s%-2s%-10s%-2s%-24s%-2s%-18s%-2s%-10s\n",
+						"id", "|", "username", "|", "suspect since", "|", "close contact", "|", "contact duration");
+				System.out.println("---------------------------------------------------------------------------------");
+				for(String user : suspects){
+					printSuspectUser(user);
+				}
+				System.out.println();
+			}
+		}
+	}
+
+
+	private static void printHeader(String header){
+		System.out.println("=================================================================================");
+		System.out.println(header);
+		System.out.println("=================================================================================");
+	}
+
+	private static void printHealthyUser(String user){
+		String[] fields = user.split("-");
+		System.out.printf("%-4s%-2s%-10s\n", fields[0], "|", fields[1]);
+	}
+
+	private static void printInfectedUser(String user){
+		String[] fields = user.split("#");
+		System.out.printf("%-4s%-2s%-10s%-2s%-24s\n", fields[0], "|", fields[1], "|", fields[2]);
+	}
+
+	private static void printSuspectUser(String user){
+		String[] fields = user.split("#");
+		System.out.printf("%-4s%-2s%-10s%-2s%-24s%-2s%-18s%-2s%-10s\n",
+				fields[0], "|", fields[1], "|", fields[2], "|", fields[3], "|", fields[4]);
+	}
+
 	/**
 	 * Comprueba si listPositions ha tenido exito. En caso afirmatiov, imprime las
 	 * posiciones recibidas del servidor, que siempre estan en la tercera posicion
