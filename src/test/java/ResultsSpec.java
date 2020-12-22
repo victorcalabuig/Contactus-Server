@@ -1,5 +1,3 @@
-package test;
-
 import server.Location;
 import server.Alarm;
 

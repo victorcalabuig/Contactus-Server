@@ -1,5 +1,3 @@
-package test;
-
 import database.DatabaseCreation;
 
 import java.io.BufferedReader;

@@ -331,12 +331,11 @@ public class ServerInstance implements Runnable {
 	 * principal (0 o -41), sino, devuelve -42 (consultar utils.Code)
 	 */
 	private static int addUser(String[] fields, Statement stmt) throws SQLException {
-		if(fields.length == 4) {
+		if (fields.length == 4) {
 			return addUser(fields[2], fields[3], stmt);
 		}
 		return -42;
 	}
-
 	private static int removeUser(String[] fields, Statement stmt) throws SQLException {
 		if (fields.length == 4) {
 			return removeUser(fields[2], fields[3], stmt);
@@ -1193,7 +1192,6 @@ public class ServerInstance implements Runnable {
 							break;
 						case "debug":
 							res = 0;
-
 						default: break;
 					}
 				}

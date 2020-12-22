@@ -24,13 +24,12 @@ import utils.Code;
  * conexiones.
  */
 public class Server {
-
+	
 	private static int port = 8000;
 
 
 	public static void main(String[] args) throws IOException, InterruptedException,
 			SQLException {
-
 		ServerSocket serverSocket = new ServerSocket(port);
 		Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db");
 

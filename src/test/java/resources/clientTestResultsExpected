@@ -1,0 +1,7 @@
+Waiting for client conexions...
+> Waiting for client conexions...
+Conection established from a ServerInstance!
+Message received from user 0: 0 login admin admin
+login 0 1 admin  admin> Message received from user 1: 1 logout
+logout 0    > Message received from user 0: 0 exit
+exit 0    
