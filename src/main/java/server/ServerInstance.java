@@ -5,22 +5,18 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.io.PrintWriter;
 import static java.lang.Thread.sleep;
-import java.net.ServerSocket;
-import java.net.Socket; 
-import java.sql.Connection;
-import java.sql.DriverManager;
-import java.sql.SQLException;
-import java.sql.Statement;
-import java.sql.ResultSet;
-import java.sql.Timestamp;
+
+import java.net.Socket;
+
+import java.sql.*;
 
 import java.time.LocalDateTime;
 import java.time.ZoneId;
 import java.time.ZonedDateTime;
 
-import utils.Code;
-
-import javax.print.DocFlavor;
+import java.util.Arrays;
+import java.util.List;
+import java.util.ArrayList;
 
 
 /**
@@ -32,9 +28,12 @@ public class ServerInstance implements Runnable {
 
 	private static Socket clientSocket;
 
+	private static Connection con;
 
-	public ServerInstance(Socket clientSocket){
+
+	public ServerInstance(Socket clientSocket, Connection con){
 		this.clientSocket = clientSocket;
+		this.con = con;
 	}
 
 	//¡¡IMPORTANTE!! No convirtais las variables staticas globales a variables locales,
@@ -51,6 +50,12 @@ public class ServerInstance implements Runnable {
 	 * cercanos de los infectados para detectar usuarios suspects/sospechosos.
 	 */
 	private static String traceRetrospectiveReach = "-2d";
+
+	/**
+	 * Tiempo máximo que pueden estar 2 usuarios juntos. Si se supera, se considerarán
+	 * a esos usuarios como contactos cercanos.
+	 */
+	public static long CLOSE_CONTACT_TIME = 10000; //10 segundos, para depurar y testear
 
 	//Definición de los estados, para el campo state de la tabla user
 	private static final String healthyState = "healthy";
@@ -74,6 +79,217 @@ public class ServerInstance implements Runnable {
 
 		insertNewUser(username, pwd, stmt);
 		return 0;
+	}
+
+	public static int checkCloseContacts(String[] fields, Statement stmt) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(!isAdmin(userId, stmt)) return -47;
+
+		checkCloseContacts(stmt);
+		return 0;
+	}
+
+	public static void checkCloseContacts(Statement stmt) throws SQLException {
+		checkCloseContactsOfType("Infected", true, stmt);
+		checkCloseContactsOfType("Suspect", false, stmt);
+	}
+
+	public static void checkCloseContactsOfType(String table, boolean infected, Statement stmt)
+		throws SQLException
+	{
+		List<Integer> typeUserIds = getTypeUserIds(table, stmt);
+		for(int userId : typeUserIds){
+			checkCloseContacts(userId, infected, stmt);
+		}
+	}
+
+	public static void checkCloseContacts(int DangerUserId, boolean infected, Statement stmt)
+			throws SQLException
+	{
+		//Obtener instante a partir del cual rastrear contactos cercanos
+		long timeFrame = getLastCloseContactCheck(DangerUserId, infected, stmt);
+
+		//Obtenemos todas las posiciones sin rastrear del usuario peligroso
+		List<Location> dangerUserUncheckedLocations = getUserLocationsInRange(DangerUserId, timeFrame, stmt);
+
+		//juntamos ids de suspect y healthy en la lista healthyUsersIdsList
+		List<Integer> healthyUserIdsList = new ArrayList();
+		healthyUserIdsList.addAll(getTypeUserIds("Healthy", stmt));
+		healthyUserIdsList.addAll(getTypeUserIds("Suspect", stmt));
+
+		//Para cada usuario healthy o suspect...
+		while(!healthyUserIdsList.isEmpty()){
+			int currHealthyUser = healthyUserIdsList.get(0);
+
+			//Obtenemos todas sus posiciones en el mismo rango de tiempo que el usuario infectado
+			List<Location> healhtyUserLocations = getUserLocationsInRange(currHealthyUser, timeFrame, stmt);
+
+			//Si han estado juntos lo suficiente, marcamos al usuario healthy como suspect
+			Contact contact = new Contact();
+			if(haveBeenTogetherLongEnough(dangerUserUncheckedLocations, healhtyUserLocations, contact, stmt)) {
+				suspect(currHealthyUser, DangerUserId, contact.contactTime, stmt);
+			}
+
+			healthyUserIdsList.remove(0);
+		}
+
+	}
+
+	/**
+	 * Dadas 2 listas de posiciones correspondientes a un mismo interval temporal, compara
+	 * todas las posiciones de una lista con todas las posicoines de la otra buscando matches.
+	 * Si detecta un match (isNear devuelve true), llama al método calculateTimeTogether para
+	 * determinar si han estado el suficiente tiempo juntos como para considerarse ese contacto
+	 * un contacto cercano.
+	 *
+	 * @param dangerUserLocations Lista de posisciones del usuario infectado o suspect.
+	 * @param healthyUserLocations Lista de posiciones del usuario healthy
+	 * @param contact Objeto utilizado para pasar como referencia el valor entero contactTime.
+	 * @return true si se ddtecta un contacto cercano, false sino.
+	 */
+	public static boolean haveBeenTogetherLongEnough(
+			List<Location> dangerUserLocations, List<Location> healthyUserLocations,
+			Contact contact, Statement stmt)
+			throws SQLException
+	{
+		for (Location currDangerLocation : dangerUserLocations) {
+			for (Location currHealhtyLocation : healthyUserLocations) {
+				if (currDangerLocation.isNear(currHealhtyLocation)) {
+					long timeTogether = calculateTimeTogether(currDangerLocation, currHealhtyLocation, stmt);
+					if(timeTogether > CLOSE_CONTACT_TIME){
+						contact.contactTime = timeTogether;
+						return true;
+					}
+				}
+			}
+		}
+		return false;
+	}
+
+	/**
+	 * Dadas 2 posiciones iniciales de 2 usuarios distitntos que se encuentran en el mismo lugar
+	 * en el mismo momento, reconstruye los siguientes movimientos de esos usuarios para determinar
+	 * el tiempo que han permanecido juntos. Se asume que hasta que no se registre una nueva
+	 * posición para un usuario, dicho usuario no se ha movido.
+	 *
+	 * @param startLocUser1 Posición de partida del usuario 1
+	 * @param startLocUser2 Posición de partida del usuario 2
+	 * @return Tiempo que han permanecido juntos los 2 usuarios en milisegundos.
+	 */
+	public static long calculateTimeTogether(Location startLocUser1, Location startLocUser2,
+											 Statement stmt)
+		throws SQLException
+	{
+		//Juntamos en un única lista todas las posiciones de los 2 usuarios a partir de sus
+		//posiciones iniciales.
+		List<Location> user1And2Locations = new ArrayList<>();
+		user1And2Locations.addAll(getUserLocationsFromStartLocation(startLocUser1, stmt));
+		user1And2Locations.addAll(getUserLocationsFromStartLocation(startLocUser2, stmt));
+
+		//Convertimos la lista en Array y lo ordenamos según la fecha de las posiciones.
+		//Este comportamiento para ordenar está definido en el método compareTo de la clase Location.
+		Location [] path = new Location[user1And2Locations.size()];
+		user1And2Locations.toArray(path);
+		Arrays.sort(path);
+
+		Location u1Location = startLocUser1;
+		Location u2Location = startLocUser2;
+
+		long timeTogether = 0;
+
+		int user1 = startLocUser1.userId;
+		int user2 = startLocUser2.userId;
+
+		//Cada nueva posición es un movimiento de uno de los 2 usuarios
+		for(Location move : path){
+			timeTogether += Location.calculateTimeDiff(u1Location, move);
+
+			//Determinar quien de los 2 usuario se ha movido.
+			if(move.userId == user1) u1Location = move;
+			else u2Location = move;
+
+			//Si la nueva distancia supera MIN_DISTANCE significa que los usuarios se han alejado,
+			//Por lo que la iteración se detiene.
+			double distance = Location.calculateDistance(u1Location, u2Location);
+			if(distance > Location.MIN_DISTANCE){
+				return timeTogether;
+			}
+		}
+		//Si se llega hasta aquí significa que ningúna de las nuevas posiciones ha roto la distancia
+		//de seguridad, por lo que hasta el momento actual permanecen juntos.
+		return Math.abs(u1Location.time - getCurrentTime());
+	}
+
+
+	/**
+	 * Devuelve en una lista de ints todos los ids de los usuarios healthy.
+	 */
+	public static List<Integer> getHealthyUserIds(Statement stmt) throws SQLException {
+		List<Integer> healhtyUserIds = new ArrayList<>();
+		ResultSet healthyUserIdsRS = stmt.executeQuery("SELECT userId FROM Healthy");
+		while(healthyUserIdsRS.next()){
+			healhtyUserIds.add(healthyUserIdsRS.getInt(1));
+		}
+		return healhtyUserIds;
+	}
+
+	/**
+	 * Devuelve lista con ids de usuarios de un tipo concreto (healthy, suspect, infected...)
+	 * @param table Tabla del tipo de usuario (Healthy, Suspect o Infected)
+	 */
+	public static List<Integer> getTypeUserIds(String table, Statement stmt) throws SQLException {
+		List<Integer> typeUserIds = new ArrayList();
+		ResultSet typeUserIdsRS = stmt.executeQuery(String.format(
+				"SELECT userId FROM %s", table));
+		while(typeUserIdsRS.next()){
+			typeUserIds.add(typeUserIdsRS.getInt(1));
+		}
+		return typeUserIds;
+	}
+
+
+	/**
+	 * Devuelve todas las locations de un usuario a partir de un determinado instante, pasado
+	 * en el campo timeFrame.
+	 * @param timeFrame Intante a partir del cual se obtienen las posiciones, en milisegundos desde
+	 *                  el epoch.
+	 */
+	public static List<Location> getUserLocationsInRange(int userId, long timeFrame, Statement stmt)
+		throws SQLException
+	{
+		List<Location> locationsList = new ArrayList<>();
+		ResultSet locationsRS = stmt.executeQuery(String.format(
+				"SELECT locationId, userId, time, latitude, longitude FROM Location WHERE " +
+						"userId = %d AND time > %d", userId, timeFrame));
+		while(locationsRS.next()){
+			locationsList.add(new Location(locationsRS));
+		}
+		return locationsList;
+	}
+
+	/**
+	 * Devuelve una lista de posiciones a partir de una posición inicial.
+	 * @param startLocation
+	 */
+	public static List<Location> getUserLocationsFromStartLocation(Location startLocation, Statement stmt)
+			throws SQLException {
+		return getUserLocationsInRange(startLocation.userId, startLocation.time, stmt);
+	}
+
+	/**
+	 * Devuelve la fecha en la que se hizo el último rastreo de contactos cercanos del usuario
+	 * pasado como parametro en userId.
+	 * @param infected boolean para indicar si se trata de un usuario infected o suspect, ya que
+	 *                 para ambos se aplica el rastreo.
+	 */
+	public static long getLastCloseContactCheck(int userId, boolean infected, Statement stmt)
+			throws SQLException
+	{
+		String state = infected ? "Infected" : "Suspect";
+		ResultSet lastCloseContactCheckRS = stmt.executeQuery(String.format(
+				"SELECT lastCloseContactsCheck FROM %s WHERE userId = %d", state, userId));
+		lastCloseContactCheckRS.next();
+		return lastCloseContactCheckRS.getLong(1);
 	}
 
 	/**
@@ -115,12 +331,11 @@ public class ServerInstance implements Runnable {
 	 * principal (0 o -41), sino, devuelve -42 (consultar utils.Code)
 	 */
 	private static int addUser(String[] fields, Statement stmt) throws SQLException {
-		if(fields.length == 4) {
+		if (fields.length == 4) {
 			return addUser(fields[2], fields[3], stmt);
 		}
 		return -42;
 	}
-
 	private static int removeUser(String[] fields, Statement stmt) throws SQLException {
 		if (fields.length == 4) {
 			return removeUser(fields[2], fields[3], stmt);
@@ -173,14 +388,38 @@ public class ServerInstance implements Runnable {
 		Timestamp timestamp = new Timestamp(System.currentTimeMillis());
 		long time = timestamp.getTime();
 		String updatePos = String.format(
-				"INSERT INTO Location VALUES ('%d', '%d', '%f', '%f')",
+				"INSERT INTO Location (userId, time, latitude, longitude) VALUES ('%d', '%d', '%f', '%f')",
 				userId, time, latitude, longitude);
 		try{
 			stmt.executeUpdate(updatePos);
 		}catch (Exception e){
-			System.out.println("patata");
+			e.printStackTrace();
+			return -4;
 		}
+
+		//Actualizar campo lastLocation de la tabla User con la nueva posición
+		int locationId = getLocationId(userId, time, stmt);
+		updateUserLastPosition(userId, locationId, stmt);
 		return 0;
+	}
+
+	/**
+	 * Devuelve la clave primaria locationId de una location dados su userId y el instante time.
+	 */
+	private static int getLocationId(int userId, long time, Statement stmt) throws SQLException {
+		ResultSet locationIdRS = stmt.executeQuery(String.format(
+				"SELECT locationId FROM Location WHERE userId = %d AND time = %d", userId, time));
+		locationIdRS.next();
+		return locationIdRS.getInt(1);
+	}
+
+	/**
+	 * Actualiza la última posición del usuario dado (el campo lastLocation de la tabla User).
+	 */
+	private static int updateUserLastPosition(int userId, int locationId, Statement stmt) throws SQLException {
+		int rowUpdated = stmt.executeUpdate(String.format(
+				"UPDATE User SET lastLocation = %d WHERE userId = %d", locationId, userId));
+		return rowUpdated;
 	}
 
 	/**
@@ -237,13 +476,70 @@ public class ServerInstance implements Runnable {
 	 * Consulta y devuelve los usuarios del sistema
 	 * @return String con los usernames separados por un espacio en blanco.
 	 */
-	private static String getUsers(Statement stmt) throws SQLException {
+	private static String getUserss(Statement stmt) throws SQLException {
 		ResultSet usersRS = stmt.executeQuery("SELECT username FROM User");
 		String users = "";
 		while(usersRS.next()){
 			users += usersRS.getString(1) + " ";
 		}
 		return users;
+	}
+
+	private static String getUsers(Statement stmt) throws SQLException{
+		//Obtener listas de los tres tipos de usuarios
+		List<User> healthies = getHealthyUsers(stmt);
+		List<User> infecteds = getInfectedUsers(stmt);
+		List<User> suspects = getSuspectUsers(stmt);
+
+		//Añadir usuarios a StringBuilder.
+		StringBuilder sb = new StringBuilder();
+		appendUserList(sb, healthies);
+		appendUserList(sb, infecteds);
+		appendUserList(sb, suspects);
+
+		return sb.toString();
+	}
+
+	private static void appendUserList(StringBuilder sb, List<User> users){
+		sb.append("f"); //para evitar null Pointer si no hay usuarios de algún tipo.
+		for(User user : users){
+			sb.append(user + "//");
+		}
+		sb.append("|");
+	}
+
+	private static List<User> getSuspectUsers(Statement stmt) throws SQLException {
+		ResultSet suspectsRS = stmt.executeQuery(
+				"SELECT S.userId, Uusr.username, suspectSince, Uinf.username, contactDuration " +
+					"FROM Suspect S " +
+					"INNER JOIN User Uusr USING(userId) " +
+					"INNER JOIN User Uinf ON S.infectedBy = Uinf.userId");
+		List<User> suspects = new ArrayList();
+		while(suspectsRS.next()){
+			suspects.add(new SuspectUser(suspectsRS));
+		}
+		return suspects;
+	}
+
+	private static List<User> getInfectedUsers(Statement stmt) throws SQLException {
+		ResultSet infectedsRS = stmt.executeQuery(
+				"SELECT I.userId, username, infectedSince " +
+					"FROM User INNER JOIN Infected I USING(userId)");
+		List<User> infecteds = new ArrayList();
+		while(infectedsRS.next()){
+			infecteds.add(new InfectedUser(infectedsRS));
+		}
+		return infecteds;
+	}
+
+	private static List<User> getHealthyUsers(Statement stmt) throws SQLException {
+		ResultSet healthiesRS = stmt.executeQuery(
+				"SELECT H.userId, username FROM User INNER JOIN Healthy H USING(userId)");
+		List<User> healthies = new ArrayList<>();
+		while(healthiesRS.next()){
+			healthies.add(new HealthyUser(healthiesRS));
+		}
+		return healthies;
 	}
 
 
@@ -402,13 +698,32 @@ public class ServerInstance implements Runnable {
 		return -46;
 	}
 
+	/**
+	 * Comprueba que el usuario ha iniciado sesión y no está infectado para dejarle ejecutar
+	 * startAlarms.
+	 */
+	private static int startAlarms(String[] fields, Statement stmt) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(!userLoggedIn(fields)) return -46;
+		if(isInfected(userId, stmt)) return -482;
+		return 0;
+	}
+
 	private static int stopPositions(String[] fields){
+		if(userLoggedIn(fields)) return 0;
+		return -46;
+	}
+
+	private static int stopAlarms(String[] fields){
 		if(userLoggedIn(fields)) return 0;
 		return -46;
 	}
 
 	private static boolean userLoggedIn(String[] fields){
 		return Integer.parseInt(fields[0]) > 0;
+	}
+	private static boolean userLoggedIn(int userId){
+		return userId > 0;
 	}
 
 	/**
@@ -448,6 +763,9 @@ public class ServerInstance implements Runnable {
 
 		//Actualizar historial (tabla StateHistory) con el cambio
 		updateStateHistory(userId, infectionTime, previousState, infectedState, stmt);
+
+		checkCloseContacts(userId, true, stmt);
+
 		return 0;
 	}
 
@@ -529,7 +847,7 @@ public class ServerInstance implements Runnable {
 			case infectedState -> newState = "1";
 		}
 		int updatedRowCount = stmt.executeUpdate(String.format(
-				"UPDATE User SET state = '%s' WHERE userId = %d", newState, userId));
+				"UPDATE User SET state = %s WHERE userId = %d", newState, userId));
 		return updatedRowCount;
 	}
 
@@ -567,15 +885,18 @@ public class ServerInstance implements Runnable {
 		if(fields.length != 2) return -42;
 		if(!userLoggedIn(fields)) return -46; //not authenticated
 		if(isSuspect(userId, stmt)) return -473; //user already suspect
-		if(isInfected(userId, stmt)) return -474; //No permitimos pasar de infected a suspect
+		if(isInfected(userId, stmt)) return -481; //No permitimos pasar de infected a suspect
 
 		return suspect(userId, stmt);
 	}
 
 	/**
 	 * Modifica el estado de un usuario a healthy. Incluye la lógica para gestionar
-	 * las diferentes tablas (healthy, infected y suspect).
+	 * las diferentes tablas (healthy, infected y suspect). Deprecated, ya que ahora
+	 * cuando añadimos un suspect también guardamos info sobre quién ha sido su
+	 * contacto cercano y cuanto tiempo ha estado con el.
 	 */
+	@Deprecated
 	private static int suspect(int userId, Statement stmt) throws SQLException {
 		//quitar al usuario de las tabla healthy
 		int delHealthy = deleteUserFromTable("Healthy", userId, stmt);
@@ -584,13 +905,53 @@ public class ServerInstance implements Runnable {
 
 		//Insertar en Suspect
 		long suspectSince = getCurrentTime();
+		long defaultLastCheck = getTimeFrame(traceRetrospectiveReach); //fecha actual - 2 días
 		stmt.executeUpdate(String.format(
-				"INSERT INTO Suspect VALUES (%d, %d)", userId, suspectSince));
+				"INSERT INTO Suspect (userId, suspectSince, lastCloseContactCheck) VALUES (%d, %d, %d)",
+				userId, suspectSince, defaultLastCheck));
 
 		updateUserStateField(userId, suspectState, stmt); //actualizar campo state de la tabla User
 
 		//Actualizar historial (tabla StateHistory) con el cambio
 		updateStateHistory(userId, suspectSince, previousState, suspectState, stmt);
+		return 0;
+	}
+
+	/**
+	 * Modifica el estado de un usuario healthy a suspect.
+	 * @param userId id del usuario que pasa a estado suspect.
+	 * @param dangerUserId id del usuario que ha provocado que el usuario userId pase a estado suspect.
+	 * @param contactDuration Tiempo que ha durado el contacto cercano.
+	 */
+	private static int suspect(int userId, int dangerUserId, long contactDuration, Statement stmt)
+			throws SQLException
+	{
+		//quitar al usuario de las tabla healthy
+		int delHealthy = deleteUserFromTable("Healthy", userId, stmt);
+
+		String previousState = healthyState; //solo se puede pasar a suspect desde healthy
+
+		//Si yá es suspect, unicamente hay que actualizar contact duration y lastCloseContactCheck
+		if(isSuspect(userId, stmt)){
+			stmt.executeUpdate(String.format(
+					"UPDATE Suspect SET lastCloseContactsCheck = %d, contactDuration = %d WHERE userId = %d",
+					getCurrentTime(), contactDuration, userId));
+		}
+		else {
+			//Sino, Insertar en Suspect
+			long suspectSince = getCurrentTime();
+			long defaultLastCheck = getTimeFrame(traceRetrospectiveReach); //fecha actual - 2 días
+			stmt.executeUpdate(String.format(
+					"INSERT INTO Suspect (userId, suspectSince, lastCloseContactsCheck, infectedBy, contactDuration) " +
+							"VALUES (%d, %d, %d, %d, %d)",
+					userId, suspectSince, defaultLastCheck, dangerUserId, contactDuration));
+
+			updateUserStateField(userId, suspectState, stmt); //actualizar campo state de la tabla User
+
+			//Actualizar historial (tabla StateHistory) con el cambio
+			updateStateHistory(userId, suspectSince, previousState, suspectState, stmt);
+		}
+
 		return 0;
 	}
 
@@ -603,6 +964,130 @@ public class ServerInstance implements Runnable {
 		return suspectUserIdRS.next();
 	}
 
+	/**
+	 * Envuelve al método principal de listAlarms. Realiza varias comprobaciones sobre el
+	 * mensaje recibido del cliente, como el número de parametros, si ha iniciado sesión,
+	 * o su estado (solo pueden ejecutar listAlarms los usuarios helathy y suspect).
+	 *
+	 * @param fields Mensaje recibido del cliente separado por espacios.
+	 * @param alarmsSB StringBuilder utilizado como parametro de salida para devolver la lista de alarmas.
+	 * @return 0 si exito, código de error si falla alguna validación.
+	 * @throws SQLException
+	 */
+	private static int listAlarms(String[] fields, Statement stmt, StringBuilder alarmsSB) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(fields.length != 2) return -42; //CAMBIAR más adelante para el listAlarms de admin
+		if(!userLoggedIn(userId)) return -46;
+		if(isInfected(userId, stmt)) return  -482; //No avisamos a infectados si se les acerca otro infectado
+		if(userHasNoLocation(userId, stmt)) return -491;
+
+		return listAlarms(userId, stmt, alarmsSB);
+	}
+
+	/**
+	 * Comprueba en tiempo real si hay algún usuario peligroso (suspect o infected) cerca del
+	 * usuario indicado en userId. Para ello se cogen las últimas posiciones de todos los usuarios
+	 * peligros y se comparán con la última posición de userId usando el método de la clase
+	 * Location Location.isNear(Location l2). Para cada par de posiciones que devuelvan true a la
+	 * llamada isNear se crea una alarma que se añade a una lista de alarmas. Finalmente se pasa
+	 * la lista de alarmas al parámetro de salida alarmsSB (StringBuilder).
+	 *
+	 * @param userId Usuario que ejecuta listAlarms.
+	 * @param alarmsSB StringBuilder que se utiliza como parametro de salida para devolver la lista
+	 *                 de alarmas.
+	 */
+	private static int listAlarms(int userId, Statement stmt, StringBuilder alarmsSB) throws SQLException {
+		//Obtenemos la posición del usuario healthy y todas las últimas posiciones peligrosas
+		Location healthyUserLocation = getUserLastLocation(userId, stmt);
+		List<Location> dangerLocations = getDangerLocations(stmt);
+
+		//Si userId es un suspect, eliminamos su posición de la lista para no crear una alarma consigo mismo.
+		dangerLocations.remove(new Location(getUserLastLocationId(userId, stmt)));
+
+		List<Alarm> healthyUserAlarmsList = new ArrayList();
+
+		//Comparamos la posición del healthyUser con todas las pocisiones peligrosas
+		//Si el método isNear devuelve true, creamos una nueva alarma y la añadimos a la lista.
+		while(!dangerLocations.isEmpty()){
+			Location currentDangerLocation = dangerLocations.get(0);
+			if(healthyUserLocation.isNear(currentDangerLocation)){
+				healthyUserAlarmsList.add(new Alarm(healthyUserLocation, currentDangerLocation));
+			}
+			dangerLocations.remove(0);
+		}
+
+		//Si se ha detectado alguna alarma, añadirla al StringBuilder alarms SB.
+		if(!healthyUserAlarmsList.isEmpty()) {
+			int alarmCount = healthyUserAlarmsList.size();
+			String plural = ((alarmCount == 1) ? "" : "s").trim(); //Si hay más de una alarma, añadimos una s a "Alarm"
+			alarmsSB.append(String.format("%d Alarm%s detected: %s", alarmCount, plural, healthyUserAlarmsList));
+		}
+		return 0;
+	}
+
+	/**
+	 * Recupera todas las últimas posiciones de usuarios infectados y sospechosos (las posiciones
+	 * peligrosas). Cada location la empaqueta en un objeto Location y la añade a una lista de
+	 * Locations.
+	 * @return Lista de Locations peligrosas.
+	 */
+	private static List<Location> getDangerLocations(Statement stmt) throws SQLException {
+		List<Location> dangerLocationsList = new ArrayList();
+
+		//subconsulta con referencias a todas ultimas posiciones de infectados o sospechosos:
+		String dangerLocationIdsSubQuery = "SELECT lastLocation FROM User WHERE state = 1 OR state IS NULL";
+
+		//Consultamos y añadimos todas esas Locations a la lista dangerLocationsList
+		ResultSet dangerLocationsRS = stmt.executeQuery(String.format(
+				"SELECT locationId, userId, time, latitude, longitude FROM Location WHERE locationId IN (%s)",
+				dangerLocationIdsSubQuery));
+		while(dangerLocationsRS.next()){
+			dangerLocationsList.add(new Location(dangerLocationsRS));
+		}
+
+		return dangerLocationsList;
+	}
+
+	/**
+	 * Dado un userId, devuelve un objeto Location correspondiente a su última posicion.
+	 */
+	private static Location getUserLastLocation(int userId, Statement stmt) throws SQLException {
+		long locationId = getUserLastLocationId(userId, stmt);
+		return getLocation(locationId, stmt);
+	}
+
+	/**
+	 * Dado un locationId devuelve el objeto Location corresopndiente (basicamente un objeto
+	 * con todos los campos de una Location).
+	 */
+	private static Location getLocation(long locationId, Statement stmt) throws SQLException {
+		ResultSet locationRS = stmt.executeQuery(String.format(
+				"SELECT locationId, userId, time, latitude, longitude FROM Location WHERE locationId = %d",locationId));
+		locationRS.next();
+		return new Location(locationRS);
+	}
+
+	/**
+	 * Dado un userId, devuelve el locationId de su última posición.
+	 */
+	private static long getUserLastLocationId(int userId, Statement stmt) throws SQLException {
+		ResultSet locationIdRS = stmt.executeQuery(String.format(
+				"SELECT lastLocation FROM User WHERE userId = %d", userId));
+		locationIdRS.next();
+		return locationIdRS.getLong(1);
+	}
+
+	/**
+	 * Comprueba si un usuario tiene alguna posición registrada. No tendrán ninguna posición
+	 * los usuarios nuevos que no hayan añadido todavía ninguna posición.
+	 */
+	private static boolean userHasNoLocation(int userId, Statement stmt) throws SQLException {
+		ResultSet lastLocationRS = stmt.executeQuery(String.format(
+				"SELECT lastLocation FROM User WHERE userId = %d", userId));
+		lastLocationRS.next();
+		lastLocationRS.getLong(1);
+		return lastLocationRS.wasNull();
+	}
 
 
 	/**
@@ -612,7 +1097,6 @@ public class ServerInstance implements Runnable {
 	 */
 	public void run() {
 		try {
-			Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db");
 			Statement stmt = con.createStatement();
 
 			stmt.execute("PRAGMA foreign_keys = ON"); //enable foreign key behavior
@@ -681,14 +1165,26 @@ public class ServerInstance implements Runnable {
 						case "stopPositions":
 							res = stopPositions(fields);
 							break;
+						case "startAlarms":
+							res = startAlarms(fields, stmt);
+							break;
+						case "stopAlarms":
+							res = stopAlarms(fields);
+							break;
 						case "infected":
 							res = infected(fields, stmt);
 							break;
 						case "healthy":
 							res = healthy(fields, stmt);
 							break;
-						case "suspect":
-							res = suspect(fields, stmt);
+						//case "suspect":
+						//	res = suspect(fields, stmt);
+						//	break;
+						case "listAlarms":
+							res = listAlarms(fields, stmt, info3);
+							break;
+						case "closeContacts":
+							res = checkCloseContacts(fields, stmt);
 							break;
 						case "exit":
 							res = 0;
@@ -696,7 +1192,6 @@ public class ServerInstance implements Runnable {
 							break;
 						case "debug":
 							res = 0;
-
 						default: break;
 					}
 				}
@@ -708,7 +1203,7 @@ public class ServerInstance implements Runnable {
 				msgToSend = msgToSend.replaceAll("\\s{2,}", " "); //eliminamos dobles/triples espacios
 
 				//Envio del mensaje:
-				out.println(msgToSend);;
+				out.println(msgToSend);
 			}
 
 			con.close();
@@ -717,6 +1212,19 @@ public class ServerInstance implements Runnable {
 		} catch(IOException|SQLException e){
 			e.printStackTrace();
 		}
+	}
+
+	//For debugging
+	public static void main(String[] args) throws SQLException {
+		Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db");
+		Statement stmt = con.createStatement();
+		stmt.execute("PRAGMA foreign_keys = ON"); //enable foreign key behavior
+
+		List<Location> list = new ArrayList<>();
+		Object[] array = list.toArray();
+		Arrays.sort(array);
+		System.out.println(array.length);
+
 	}
 
 }
