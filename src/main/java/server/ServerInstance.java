@@ -36,6 +36,10 @@ public class ServerInstance implements Runnable {
 		this.con = con;
 	}
 
+	public ServerInstance(){
+
+	}
+
 	//¡¡IMPORTANTE!! No convirtais las variables staticas globales a variables locales,
 	// aunque os lo proponga el IntelliJ.
 

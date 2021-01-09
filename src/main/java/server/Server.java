@@ -19,9 +19,9 @@ import utils.Code;
 
 /**
  * Arranca el servidor y escucha en el puerto indicado conexiones de la clase
- * Client o de la clase PositionSender. Cada vez que recibe una conexion, inicia
- * un nuevo thread para gestionar esa conexion y sigue escuchando para nuevas
- * conexiones.
+ * Client o de los threads secundarios de los clientes. Cada vez que recibe una
+ * conexion, inicia un nuevo thread para gestionar esa conexion y sigue escuchando
+ * para nuevas conexiones.
  */
 public class Server {
 	
@@ -32,6 +32,11 @@ public class Server {
 			SQLException {
 		ServerSocket serverSocket = new ServerSocket(port);
 		Connection con = DriverManager.getConnection("jdbc:sqlite:Contactus.db");
+
+		//Creación y lanzamiento del thread que comprueba cada cierto tiempo los contactos
+		//cercanos de forma automática
+		CloseContactChecker ccChecker = new CloseContactChecker(con);
+		(new Thread(ccChecker)).start();
 
 		boolean listen = true;
 		while(listen){
