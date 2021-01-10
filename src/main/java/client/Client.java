@@ -94,7 +94,7 @@ public class Client {
 	 * de login.
 	 */
 	private static void processLoginResult(String[] fields){
-		if(Integer.parseInt(fields[1]) == 0 && fields.length == 4){
+		if(Integer.parseInt(fields[1]) == 0 && fields.length == 5){
 			currentUserId = Integer.valueOf(fields[2]);
 			currentUsername = fields[3];
 			sendAutomaticListAlarms();

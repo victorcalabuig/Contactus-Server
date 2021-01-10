@@ -1093,6 +1093,17 @@ public class ServerInstance implements Runnable {
 		return lastLocationRS.wasNull();
 	}
 
+	/**
+	 * Devuelve 0 si el usuario es de tipo admin, 1 sino.
+	 */
+	public static StringBuilder userType(String id, Statement stmt) throws SQLException {
+		StringBuilder userType = new StringBuilder();
+		int userId = Integer.parseInt(id);
+		if(isAdmin(userId, stmt))
+			return userType.append(0);
+		return userType.append(1);
+	}
+
 
 	/**
 	 * Este metodo es de la interfaz Runnable. Envuelve el bloque que se ejecutara
@@ -1147,6 +1158,7 @@ public class ServerInstance implements Runnable {
 							if(res == 0) {
 								info1 = Integer.toString(getUserId(fields[2], stmt));
 								info2 = fields[2]; //devolvemos tambien el username
+								info3 = userType(info1, stmt);
 							}
 							stmt.close();
 							break;
