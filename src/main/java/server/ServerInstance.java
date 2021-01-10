@@ -1118,6 +1118,17 @@ public class ServerInstance implements Runnable {
 		return 0;
 	}
 
+	public static int state(String[] fields, Statement stmt, StringBuilder stateSB) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(!userLoggedIn(userId)) return -46;
+
+		if(isHealthy(userId, stmt)) stateSB.append(healthyState);
+		else if(isInfected(userId, stmt)) stateSB.append(infectedState);
+		else stateSB.append(suspectState);
+
+		return 0;
+	}
+
 
 	/**
 	 * Este metodo es de la interfaz Runnable. Envuelve el bloque que se ejecutara
@@ -1203,6 +1214,9 @@ public class ServerInstance implements Runnable {
 							break;
 						case "stopAlarms":
 							res = stopAlarms(fields);
+							break;
+						case "state":
+							res = state(fields, stmt, info3);
 							break;
 						case "infected":
 							res = infected(fields, stmt);
