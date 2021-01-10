@@ -1104,6 +1104,20 @@ public class ServerInstance implements Runnable {
 		return userType.append(1);
 	}
 
+	/**
+	 * Pone en el stringbuilder pasado como parametro las coordenadas de la útlima posición
+	 * del usuario indicado.
+	 */
+	public static int lastPosition(String[] fields, Statement stmt, StringBuilder lastPositionSB) throws SQLException {
+		int userId = Integer.parseInt(fields[0]);
+		if(!userLoggedIn(userId)) return -46;
+		if(userHasNoLocation(userId, stmt)) return -491;
+
+		Location lastLocation = getUserLastLocation(userId, stmt);
+		lastPositionSB.append(lastLocation.latitude).append(" ").append(lastLocation.longitude);
+		return 0;
+	}
+
 
 	/**
 	 * Este metodo es de la interfaz Runnable. Envuelve el bloque que se ejecutara
@@ -1174,6 +1188,9 @@ public class ServerInstance implements Runnable {
 							break;
 						case "listPositions":
 							res = listPositions(fields, stmt, info3);
+							break;
+						case "lastPosition":
+							res = lastPosition(fields, stmt, info3);
 							break;
 						case "startPositions":
 							res = startPositions(fields);
